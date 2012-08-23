@@ -60,7 +60,7 @@ import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
-import com.taobao.yarn.mpi.DSConstants;
+import com.taobao.yarn.mpi.MPIConstants;
 import com.taobao.yarn.mpi.server.ApplicationMaster;
 
 
@@ -388,9 +388,9 @@ public class Client {
     // put location of shell script into env
     // using the env info, the application master will create the correct local resource for the
     // eventual containers that will be launched to execute the shell scripts
-    env.put(DSConstants.MPIEXECLOCATION, hdfsMPIExecLocation);
-    env.put(DSConstants.MPIEXECTIMESTAMP, Long.toString(hdfsMPIExecTimestamp));
-    env.put(DSConstants.MPIEXECLEN, Long.toString(hdfsMPIExecLen));
+    env.put(MPIConstants.MPIEXECLOCATION, hdfsMPIExecLocation);
+    env.put(MPIConstants.MPIEXECTIMESTAMP, Long.toString(hdfsMPIExecTimestamp));
+    env.put(MPIConstants.MPIEXECLEN, Long.toString(hdfsMPIExecLen));
 
     // Add AppMaster.jar location to classpath
     // At some point we should not be required to add

@@ -51,7 +51,7 @@ import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
-import com.taobao.yarn.mpi.DSConstants;
+import com.taobao.yarn.mpi.MPIConstants;
 
 public class ApplicationMaster {
 
@@ -241,14 +241,14 @@ public class ApplicationMaster {
         + ", clustertimestamp=" + appAttemptID.getApplicationId().getClusterTimestamp()
         + ", attemptId=" + appAttemptID.getAttemptId());
 
-    if (envs.containsKey(DSConstants.MPIEXECLOCATION)) {
-      hdfsMPIExecLocation = envs.get(DSConstants.MPIEXECLOCATION);
+    if (envs.containsKey(MPIConstants.MPIEXECLOCATION)) {
+      hdfsMPIExecLocation = envs.get(MPIConstants.MPIEXECLOCATION);
 
-      if (envs.containsKey(DSConstants.MPIEXECTIMESTAMP)) {
-        hdfsMPIExecTimestamp = Long.valueOf(envs.get(DSConstants.MPIEXECTIMESTAMP));
+      if (envs.containsKey(MPIConstants.MPIEXECTIMESTAMP)) {
+        hdfsMPIExecTimestamp = Long.valueOf(envs.get(MPIConstants.MPIEXECTIMESTAMP));
       }
-      if (envs.containsKey(DSConstants.MPIEXECLEN)) {
-        hdfsMPIExecLen = Long.valueOf(envs.get(DSConstants.MPIEXECLEN));
+      if (envs.containsKey(MPIConstants.MPIEXECLEN)) {
+        hdfsMPIExecLen = Long.valueOf(envs.get(MPIConstants.MPIEXECLEN));
       }
 
       if (!hdfsMPIExecLocation.isEmpty()
