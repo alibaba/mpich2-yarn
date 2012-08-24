@@ -188,7 +188,6 @@ public class Client {
 
     if (cliParser.hasOption("debug")) {
       debugFlag = true;
-
     }
 
     amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));

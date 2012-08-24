@@ -4,7 +4,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -42,6 +45,9 @@ import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
+import org.apache.hadoop.yarn.api.records.LocalResource;
+import org.apache.hadoop.yarn.api.records.LocalResourceType;
+import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
@@ -184,6 +190,7 @@ public class ApplicationMaster {
     conf = new Configuration();
     rpc = YarnRPC.create(conf);
   }
+
   /**
    * Parse command line options
    * @param args Command line args
@@ -263,7 +270,7 @@ public class ApplicationMaster {
     }
 
     // MPI executable local directory
-    mpiExecDir = "/home/hadoop/" + appAttemptID.toString();
+    mpiExecDir = "/home/hadoop/mpiexecs/" + appAttemptID.toString();
 
     containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "10"));
     LOG.info("Container memory is " + containerMemory + " MB");
@@ -653,18 +660,35 @@ public class ApplicationMaster {
       ctx.setUser(jobUserName);
       LOG.info("Setting user in ContainerLaunchContext to: " + jobUserName);
 
+      // Set the local resources
+      Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+      // The container for the eventual shell commands needs its own local resources too.
+      // In this scenario, if a shell script is specified, we need to have it copied
+      // and made available to the container.
+      if (!mpiExecDir.isEmpty()) {
+        LocalResource mpiRsrc = Records.newRecord(LocalResource.class);
+        mpiRsrc.setType(LocalResourceType.FILE);
+        mpiRsrc.setVisibility(LocalResourceVisibility.PUBLIC);
+        try {
+          mpiRsrc.setResource(ConverterUtils.getYarnUrlFromURI(new URI(mpiExecDir)));
+        } catch (URISyntaxException e) {
+          LOG.error("Error when trying to use shell script path specified in env"
+              + ", path=" + mpiExecDir);
+          e.printStackTrace();
+          return;
+        }
+        mpiRsrc.setTimestamp(hdfsMPIExecTimestamp);
+        mpiRsrc.setSize(hdfsMPIExecLen);
+        localResources.put("MPIExec", mpiRsrc);
+      }
+      ctx.setLocalResources(localResources);
+
       // Set the necessary command to execute on the allocated container
       Vector<CharSequence> vargs = new Vector<CharSequence>(5);
-
-      // Set executable command
-      vargs.add("mkdir -p " + mpiExecDir + "/MPIExec;");
-      vargs.add("hadoop fs -get " + hdfsMPIExecLocation + " " + mpiExecDir + "/MPIExec;");
       // TODO This need need hack the smpd_cmd_args.c, to add an option set bService
       vargs.add("smpd -phrase 123456 -debug");  // TODO hard coding password
-
       // Add log redirect params
-      // TODO
-      // We should redirect the output to hdfs instead of local logs
+      // TODO We should redirect the output to hdfs instead of local logs
       // so as to be able to look at the final output after the containers
       // have been released.
       // Could use a path suffixed with /AppId/AppAttempId/ContainerId/std[out|err]
@@ -672,15 +696,20 @@ public class ApplicationMaster {
       vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
       vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
 
-      // Get final commmand, add spaces to each varg
-      StringBuilder command = new StringBuilder();
-      for (CharSequence str : vargs) {
-        command.append(str).append(" ");
-      }
-
+      // Commands to be executed
       List<String> commands = new ArrayList<String>();
-      commands.add(command.toString());
-      LOG.info("Executing command: " + command.toString());
+
+      // Get final daemonCmd, add spaces to each varg
+      StringBuilder daemonCmd = new StringBuilder();
+      // Set executable command
+      //      daemonCmd.append("mkdir -p " + mpiExecDir + ";");
+      //      daemonCmd.append("cp MPIExec " + mpiExecDir + "/MPIExec;");
+      for (CharSequence str : vargs) {
+        daemonCmd.append(str).append(" ");
+      }
+      commands.add(daemonCmd.toString());
+
+      LOG.info("Executing command: " + commands.toString());
       ctx.setCommands(commands);
 
       StartContainerRequest startReq = Records.newRecord(StartContainerRequest.class);
