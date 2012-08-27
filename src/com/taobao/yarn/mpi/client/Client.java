@@ -70,16 +70,12 @@ import com.taobao.yarn.mpi.server.ApplicationMaster;
 public class Client {
 
   private static final Log LOG = LogFactory.getLog(Client.class);
-
   // Configuration
   private final Configuration conf;
-
   // RPC to communicate to RM
   private final YarnRPC rpc;
-
   // Handle to talk to the Resource Manager/Applications Manager
   private ClientRMProtocol applicationsManager;
-
   // Application master specific info to register a new Application with RM/ASM
   private String appName = "MPICH2-";
   // App master priority
@@ -88,11 +84,10 @@ public class Client {
   private String amQueue = "";
   // Amt. of memory resource to request for to run the App Master
   private int amMemory = 10;
-
   // Application master jar file
   private String appMasterJar = "";
   // Main class to invoke application master
-  private String appMasterMainClass = "";
+  private final String appMasterMainClass = "com.taobao.yarn.mpi.server.ApplicationMaster";
   // Shell Command Container priority
   private int containerPriority = 0;
   // Amt of memory to request for container in which shell script will be executed
@@ -134,6 +129,7 @@ public class Client {
   }
 
   /**
+   * Constructor, create YarnRPC
    */
   public Client(Configuration conf) throws Exception  {
     // Set up the configuration and RPC
@@ -142,6 +138,7 @@ public class Client {
   }
 
   /**
+   * Constructor, create YarnRPC
    */
   public Client() throws Exception  {
     this(new Configuration());
@@ -201,9 +198,6 @@ public class Client {
 
     appMasterJar = JobConf.findContainingJar(ApplicationMaster.class);
     LOG.info("Application Master's jar is " + appMasterJar);
-
-    appMasterMainClass = cliParser.getOptionValue("class",
-        "com.taobao.yarn.mpi.server.ApplicationMaster");
 
     // MPI executable program
     if (!cliParser.hasOption("mpi_application")) {
@@ -404,7 +398,6 @@ public class Client {
       classPathEnv.append(':');
       classPathEnv.append(c.trim());
     }
-    classPathEnv.append(":./log4j.properties");
 
     // add the runtime classpath needed for tests to work
     String testRuntimeClassPath = Client.getTestRuntimeClasspath();

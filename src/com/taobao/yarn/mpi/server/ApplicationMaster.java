@@ -117,10 +117,13 @@ public class ApplicationMaster {
   // Hosts
   private final Set<String> hosts = new HashSet<String>();
 
+  // location of MPI program on HDFS
   private String hdfsMPIExecLocation;
 
+  // timestamp of MPI program on HDFS
   private long hdfsMPIExecTimestamp;
 
+  // file length of MPI program on HDFS
   private long hdfsMPIExecLen;
 
   // MPI Exec home dir
@@ -269,7 +272,7 @@ public class ApplicationMaster {
       }
     }
 
-    // MPI executable local directory
+    // FIXME MPI executable local directory, hard coding
     mpiExecDir = "/home/hadoop/mpiexecs/" + appAttemptID.toString();
 
     containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "10"));
@@ -329,11 +332,11 @@ public class ApplicationMaster {
     }
 
     // Setup heartbeat emitter
-    // TODO poll RM every now and then with an empty request to let RM know that we are alive
-    // The heartbeat interval after which an AM is timed out by the RM is defined by a config setting:
-    // RM_AM_EXPIRY_INTERVAL_MS with default defined by DEFAULT_RM_AM_EXPIRY_INTERVAL_MS
-    // The allocate calls to the RM count as heartbeats so, for now, this additional heartbeat emitter
-    // is not required.
+    // TODO poll RM every now and then with an empty request to let RM know that
+    // we are alive. The heartbeat interval after which an AM is timed out by the
+    // RM is defined by a config setting: RM_AM_EXPIRY_INTERVAL_MS with default
+    // defined by DEFAULT_RM_AM_EXPIRY_INTERVAL_MS. The allocate calls to the RM
+    // count as heartbeats so, for now, this additional heartbeat emitter is not required.
 
     // Setup ask for containers from RM
     // Send request for containers to RM
@@ -522,7 +525,7 @@ public class ApplicationMaster {
   }
 
   /**
-   * Application Master launches MPI Exec
+   * Application Master launches "mpiexec" process locally
    * @throws IOException
    */
   private void launchMpiExec() throws IOException {
@@ -650,8 +653,8 @@ public class ApplicationMaster {
       connectToCM();
 
       LOG.info("Setting up container launch container for containerid=" + container.getId());
-      ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
 
+      ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
       ctx.setContainerId(container.getId());
       ctx.setResource(container.getResource());
 
@@ -683,10 +686,32 @@ public class ApplicationMaster {
       }
       ctx.setLocalResources(localResources);
 
+      // Set the env variables to be setup in the env where the container will be run
+      LOG.info("Set the environment for the application master");
+      Map<String, String> env = new HashMap<String, String>();
+      // Add AppMaster.jar location to classpath
+      // At some point we should not be required to add
+      // the hadoop specific classpaths to the env.
+      // It should be provided out of the box.
+      // For now setting all required classpaths including
+      // the classpath to "." for the application jar
+      StringBuilder classPathEnv = new StringBuilder("${CLASSPATH}:./*");
+      for (String c : conf.getStrings(
+          YarnConfiguration.YARN_APPLICATION_CLASSPATH,
+          YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
+        classPathEnv.append(':');
+        classPathEnv.append(c.trim());
+      }
+      env.put("CLASSPATH", classPathEnv.toString());
+      env.put("MPIEXECDIR", mpiExecDir);
+      ctx.setEnvironment(env);
+
       // Set the necessary command to execute on the allocated container
+      LOG.info("Setting up container command");
       Vector<CharSequence> vargs = new Vector<CharSequence>(5);
-      // TODO This need need hack the smpd_cmd_args.c, to add an option set bService
-      vargs.add("smpd -phrase 123456 -debug");  // TODO hard coding password
+      vargs.add("${JAVA_HOME}" + "/bin/java");
+      vargs.add("-Xmx" + containerMemory + "m");
+      vargs.add("com.taobao.yarn.mpi.server.Container");
       // Add log redirect params
       // TODO We should redirect the output to hdfs instead of local logs
       // so as to be able to look at the final output after the containers
@@ -700,14 +725,12 @@ public class ApplicationMaster {
       List<String> commands = new ArrayList<String>();
 
       // Get final daemonCmd, add spaces to each varg
-      StringBuilder daemonCmd = new StringBuilder();
+      StringBuilder containerCmd = new StringBuilder();
       // Set executable command
-      //      daemonCmd.append("mkdir -p " + mpiExecDir + ";");
-      //      daemonCmd.append("cp MPIExec " + mpiExecDir + "/MPIExec;");
       for (CharSequence str : vargs) {
-        daemonCmd.append(str).append(" ");
+        containerCmd.append(str).append(" ");
       }
-      commands.add(daemonCmd.toString());
+      commands.add(containerCmd.toString());
 
       LOG.info("Executing command: " + commands.toString());
       ctx.setCommands(commands);
