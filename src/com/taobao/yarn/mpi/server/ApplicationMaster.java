@@ -7,7 +7,6 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -401,7 +400,6 @@ public class ApplicationMaster {
     while (numCompletedContainers.get() < numTotalContainers
         && !appDone) {
       loopCounter++;
-
       try {
         Thread.sleep(1000);
       } catch (InterruptedException e) {
@@ -411,7 +409,6 @@ public class ApplicationMaster {
 
       // Setup empty request to be sent to RM to let RM know we are alive
       List<ResourceRequest> resourceReq = new ArrayList<ResourceRequest>();
-      // Send the request to RM
       LOG.info("Sending empty request to RM, to let RM know we are alive");
       AMResponse amResp = sendContainerAskToRM(resourceReq);
 
@@ -431,28 +428,30 @@ public class ApplicationMaster {
 
         // increment counters for completed/failed containers
         int exitStatus = containerStatus.getExitStatus();
-        if (0 != exitStatus) {
-          // container failed
-          if (-100 != exitStatus) {
-            // shell script failed
-            // counts as completed
-            numCompletedContainers.incrementAndGet();
-            numFailedContainers.incrementAndGet();
-          } else {
-            // something else bad happened
-            // app job did not complete for some reason
-            // we should re-try as the container was lost for some reason
-            numAllocatedContainers.decrementAndGet();
-            numRequestedContainers.decrementAndGet();
-            // we do not need to release the container as it would be done
-            // by the RM/CM.
-          }
-        } else {
-          // nothing to do
-          // container completed successfully
+        switch (exitStatus) {
+        case 0:  // exit successfully
           numCompletedContainers.incrementAndGet();
           LOG.info("Container completed successfully."
-              + ", containerId=" + containerStatus.getContainerId());
+              + " containerId=" + containerStatus.getContainerId());
+          break;
+        case -1000:  // still running
+          LOG.info("Container is still running."
+              + " containerId=" + containerStatus.getContainerId());
+          break;
+        case -100:  // being killed or getting lost
+          numCompletedContainers.incrementAndGet();
+          numFailedContainers.incrementAndGet();
+          break;
+        case -101:
+          LOG.info("Container is not launched."
+              + " containerId=" + containerStatus.getContainerId());
+          numAllocatedContainers.decrementAndGet();
+          numRequestedContainers.decrementAndGet();
+          break;
+        default:
+          LOG.info("Something else happened."
+              + " containerId=" + containerStatus.getContainerId());
+          break;
         }
       }
       if (numCompletedContainers.get() == numTotalContainers) {
@@ -466,8 +465,7 @@ public class ApplicationMaster {
           + ", completed=" + numCompletedContainers
           + ", failed=" + numFailedContainers
           + ", currentAllocated=" + numAllocatedContainers);
-
-      // TODO Add a timeout handling layer, for misbehaving shell commands
+      // TODO Add a timeout handling layer, for misbehaving mpi application
     }  // end while
 
     // Join all launched threads
@@ -475,7 +473,7 @@ public class ApplicationMaster {
     // and we need to release containers
     for (Thread launchThread : launchThreads) {
       try {
-        launchThread.join(10000);
+        launchThread.join();
       } catch (InterruptedException e) {
         LOG.info("Exception thrown in thread join: " + e.getMessage());
         e.printStackTrace();
@@ -532,7 +530,7 @@ public class ApplicationMaster {
       @Override
       public void run() {
         Scanner pcStdin = new Scanner(pc.getInputStream());
-        while (pcStdin.hasNext()) {
+        while (pcStdin.hasNextLine()) {
           LOG.info(pcStdin.nextLine());
         }
       }
@@ -543,7 +541,7 @@ public class ApplicationMaster {
       @Override
       public void run() {
         Scanner pcStderr = new Scanner(pc.getErrorStream());
-        while (pcStderr.hasNext()) {
+        while (pcStderr.hasNextLine()) {
           LOG.info(pcStderr.nextLine());
         }
       }
@@ -558,12 +556,21 @@ public class ApplicationMaster {
           LOG.info("MPI Process returned with value: " + ret);
           LOG.info("Shutting down daemons...");
           Runtime rt = Runtime.getRuntime();
-          Iterator<String> iter = hosts.iterator();
-          while (iter.hasNext()) {
+          for (String host : hosts) {
             try {
-              String command = "smpd -shutdown " + iter.next();
+              // FIXME hard coding password
+              String command = "smpd -shutdown " + host + " -phrase 123456 -debug";
               LOG.info("Executing the command: " + command);
-              rt.exec(command);
+              Process process = rt.exec(command);
+              Scanner scanner = new Scanner(process.getInputStream());
+              while (scanner.hasNextLine()) {
+                LOG.info(scanner.nextLine());
+              }
+
+              scanner = new Scanner(process.getErrorStream());
+              while (scanner.hasNextLine()) {
+                LOG.info(scanner.nextLine());
+              }
             } catch (IOException e) {
               LOG.warn(e.getMessage());
               e.printStackTrace();
@@ -600,12 +607,11 @@ public class ApplicationMaster {
    */
   private class LaunchContainerRunnable implements Runnable {
 
+    Log LOG = LogFactory.getLog(LaunchContainerRunnable.class);
     // Allocated container
     Container container;
     // Handle to communicate with ContainerManager
     ContainerManager cm;
-
-    Log LOG = LogFactory.getLog(LaunchContainerRunnable.class);
 
     /**
      * @param lcontainer Allocated container
@@ -731,24 +737,6 @@ public class ApplicationMaster {
         e.printStackTrace();
         // TODO do we need to release this container?
       }
-
-      // TODO Wait for all the container launch correctly
-
-      // Get container status?
-      // Left commented out as the shell scripts are short lived
-      // and we are relying on the status for completed containers from RM to detect status
-
-      //    GetContainerStatusRequest statusReq = Records.newRecord(GetContainerStatusRequest.class);
-      //    statusReq.setContainerId(container.getId());
-      //    GetContainerStatusResponse statusResp;
-      //try {
-      //statusResp = cm.getContainerStatus(statusReq);
-      //    LOG.info("Container Status"
-      //    + ", id=" + container.getId()
-      //    + ", status=" +statusResp.getStatus());
-      //} catch (YarnRemoteException e) {
-      //e.printStackTrace();
-      //}
     }
   }
 

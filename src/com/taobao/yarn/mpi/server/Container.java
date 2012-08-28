@@ -17,6 +17,7 @@ public class Container {
    */
   public static void main(String[] args) throws IOException {
     printDebugInfo();
+    // FIXME We need a plugin to fetch data
     copyFiles();
 
     Runtime rt = Runtime.getRuntime();

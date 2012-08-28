@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+/**
+ * Utilities for operating local files
+ */
 public class LocalFileUtils {
   /**
    * Copy a file
@@ -46,6 +49,11 @@ public class LocalFileUtils {
     copyFile(src, dst);
   }
 
+  /**
+   * Making directory recursively
+   * @param path The directory
+   * @return Whether successful
+   */
   public static boolean mkdirs(String path) {
     File file = new File(path);
     return file.mkdirs();
