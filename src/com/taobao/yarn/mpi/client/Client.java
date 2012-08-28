@@ -238,8 +238,8 @@ public class Client {
     // Use ClientRMProtocol handle to general cluster information
     GetClusterMetricsRequest clusterMetricsReq = Records.newRecord(GetClusterMetricsRequest.class);
     GetClusterMetricsResponse clusterMetricsResp = applicationsManager.getClusterMetrics(clusterMetricsReq);
-    LOG.info("Got Cluster metric info from ASM"
-        + ", numNodeManagers=" + clusterMetricsResp.getClusterMetrics().getNumNodeManagers());
+    LOG.info("Got Cluster metric info from ASM, numNodeManagers="
+        + clusterMetricsResp.getClusterMetrics().getNumNodeManagers());
 
     GetClusterNodesRequest clusterNodesReq = Records.newRecord(GetClusterNodesRequest.class);
     GetClusterNodesResponse clusterNodesResp = applicationsManager.getClusterNodes(clusterNodesReq);
@@ -319,71 +319,55 @@ public class Client {
     // Set up the container launch context for the application master
     ContainerLaunchContext amContainer = Records.newRecord(ContainerLaunchContext.class);
 
-    // set local resources for the application master
-    // local files or archives as needed
-    // In this scenario, the jar file for the application master is part of the local resources
-    Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
-
     LOG.info("Copy App Master jar from local filesystem and add to local environment");
     // Copy the application master jar to the filesystem
     // Create a local resource to point to the destination jar path
     FileSystem fs = FileSystem.get(conf);
-    Path src = new Path(appMasterJar);
-    LOG.info("Source path: " + src.toString());
+    Path appJarSrc = new Path(appMasterJar);
+    LOG.info("Source path: " + appJarSrc.toString());
     String pathSuffix = appName + "/" + appId.getId() + "/AppMaster.jar";
-    Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
-    LOG.info("Destination path: " + dst.toString());
-    fs.copyFromLocalFile(false, true, src, dst);
-    FileStatus destStatus = fs.getFileStatus(dst);
-    LocalResource amJarRsrc = Records.newRecord(LocalResource.class);
+    Path appJarDst = new Path(fs.getHomeDirectory(), pathSuffix);
+    LOG.info("Destination path: " + appJarDst.toString());
+    fs.copyFromLocalFile(false, true, appJarSrc, appJarDst);
+    FileStatus appJarDestStatus = fs.getFileStatus(appJarDst);
 
-    // Set the type of resource - file or archive
-    // archives are untarred at destination
-    // we don't need the jar file to be untarred for now
+    // set local resources for the application master
+    Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+    LocalResource amJarRsrc = Records.newRecord(LocalResource.class);
     amJarRsrc.setType(LocalResourceType.FILE);
-    // Set visibility of the resource
-    // Setting to most private option
     amJarRsrc.setVisibility(LocalResourceVisibility.APPLICATION);
     // Set the resource to be copied over
-    amJarRsrc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
-    // Set timestamp and length of file so that the framework
-    // can do basic sanity checks for the local resource
-    // after it has been copied over to ensure it is the same
-    // resource the client intended to use with the application
-    amJarRsrc.setTimestamp(destStatus.getModificationTime());
-    amJarRsrc.setSize(destStatus.getLen());
+    amJarRsrc.setResource(ConverterUtils.getYarnUrlFromPath(appJarDst));
+    // Set timestamp and length of file so that the framework can do basic sanity
+    // checks for the local resource after it has been copied over to ensure
+    // it is the same resource the client intended to use with the application
+    amJarRsrc.setTimestamp(appJarDestStatus.getModificationTime());
+    amJarRsrc.setSize(appJarDestStatus.getLen());
     localResources.put("AppMaster.jar",  amJarRsrc);
 
     // Set local resource info into app master container launch context
     amContainer.setLocalResources(localResources);
 
-    // Set the necessary security tokens as needed
-    //amContainer.setContainerTokens(containerToken);
-
-    String hdfsMPIExecLocation = "";
-    long hdfsMPIExecLen = 0;
-    long hdfsMPIExecTimestamp = 0;
-    if (!mpiApplication.isEmpty()) {
-      Path shellSrc = new Path(mpiApplication);
-      String shellPathSuffix = appName + "/" + appId.getId() + "/MPIExec";
-      Path shellDst = new Path(fs.getHomeDirectory(), shellPathSuffix);
-      fs.copyFromLocalFile(false, true, shellSrc, shellDst);
-      hdfsMPIExecLocation = shellDst.toUri().toString();
-      FileStatus shellFileStatus = fs.getFileStatus(shellDst);
-      hdfsMPIExecLen = shellFileStatus.getLen();
-      hdfsMPIExecTimestamp = shellFileStatus.getModificationTime();
-    }
+    LOG.info("Copy MPI application from local filesystem to remote.");
+    assert(!mpiApplication.isEmpty());
+    Path mpiAppSrc = new Path(mpiApplication);
+    String mpiAppSuffix = appName + "/" + appId.getId() + "/MPIExec";
+    Path mpiAppDst = new Path(fs.getHomeDirectory(), mpiAppSuffix);
+    fs.copyFromLocalFile(false, true, mpiAppSrc, mpiAppDst);
+    FileStatus mpiAppFileStatus = fs.getFileStatus(mpiAppDst);
 
     // Set the env variables to be setup in the env where the application master will be run
-    LOG.info("Set the environment for the application master");
+    LOG.info("Set the environment for the application master and mpi application");
     Map<String, String> env = new HashMap<String, String>();
-
-    // put location of shell script into env
+    // put location of mpi app and appmaster.jar into env
     // using the env info, the application master will create the correct local resource for the
     // eventual containers that will be launched to execute the shell scripts
-    env.put(MPIConstants.MPIEXECLOCATION, hdfsMPIExecLocation);
-    env.put(MPIConstants.MPIEXECTIMESTAMP, Long.toString(hdfsMPIExecTimestamp));
-    env.put(MPIConstants.MPIEXECLEN, Long.toString(hdfsMPIExecLen));
+    env.put(MPIConstants.MPIEXECLOCATION, mpiAppDst.toUri().toString());
+    env.put(MPIConstants.MPIEXECTIMESTAMP, Long.toString(mpiAppFileStatus.getModificationTime()));
+    env.put(MPIConstants.MPIEXECLEN, Long.toString(mpiAppFileStatus.getLen()));
+    env.put(MPIConstants.APPJARLOCATION, appJarDst.toUri().toString());
+    env.put(MPIConstants.APPJARTIMESTAMP, Long.toString(appJarDestStatus.getModificationTime()));
+    env.put(MPIConstants.APPJARLEN, Long.toString(appJarDestStatus.getLen()));
 
     // Add AppMaster.jar location to classpath
     // At some point we should not be required to add

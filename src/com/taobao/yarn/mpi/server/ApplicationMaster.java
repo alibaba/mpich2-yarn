@@ -1,8 +1,6 @@
 package com.taobao.yarn.mpi.server;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -67,22 +65,17 @@ public class ApplicationMaster {
   private final Configuration conf;
   // YARN RPC to communicate with the Resource Manager or Node Manager
   private final YarnRPC rpc;
-
   // Handle to communicate with the Resource Manager
   private AMRMProtocol resourceManager;
-
   // Application Attempt Id ( combination of attemptId and fail count )
   private ApplicationAttemptId appAttemptID;
-
-  // TODO
-  // For status update for clients - yet to be implemented
+  // TODO For status update for clients - yet to be implemented.
   // Hostname of the container
   private final String appMasterHostname = "";
   // Port on which the app master listens for status update requests from clients
   private final int appMasterRpcPort = 0;
   // Tracking url to which app master publishes info for clients to monitor
   private final String appMasterTrackingUrl = "";
-
   // App Master configuration
   // No. of containers to run shell command on
   private int numTotalContainers = 1;
@@ -90,10 +83,8 @@ public class ApplicationMaster {
   private int containerMemory = 10;
   // Priority of the request
   private int requestPriority;
-
   // Incremental counter for rpc calls to the RM
   private final AtomicInteger rmRequestID = new AtomicInteger();
-
   // Simple flag to denote whether all works is done
   private boolean appDone = false;
   // Counter for completed containers ( complete denotes successful or failed )
@@ -113,20 +104,21 @@ public class ApplicationMaster {
 
   // Launch threads
   private final List<Thread> launchThreads = new ArrayList<Thread>();
-
   // Hosts
   private final Set<String> hosts = new HashSet<String>();
-
   // location of MPI program on HDFS
   private String hdfsMPIExecLocation;
-
   // timestamp of MPI program on HDFS
   private long hdfsMPIExecTimestamp;
-
   // file length of MPI program on HDFS
   private long hdfsMPIExecLen;
-
-  // MPI Exec home dir
+  // location of AppMaster.jar on HDFS
+  private String hdfsAppJarLocation;
+  // timestamp of AppMaster.jar on HDFS
+  private long hdfsAppJarTimeStamp;
+  // file length of AppMaster.jar on HDFS
+  private long hdfsAppJarLen;
+  // MPI Exec local dir, eath node must have the same dir
   private String mpiExecDir;
 
   /**
@@ -156,35 +148,14 @@ public class ApplicationMaster {
   }
 
   /**
-   * Dump out contents of $CWD and the environment to stdout for debugging
+   * Dump out contents of the environment to stdout for debugging
    */
   private void dumpOutDebugInfo() {
-
     LOG.info("Dump debug output");
     Map<String, String> envs = System.getenv();
     for (Map.Entry<String, String> env : envs.entrySet()) {
       LOG.info("System env: key=" + env.getKey() + ", val=" + env.getValue());
       System.out.println("System env: key=" + env.getKey() + ", val=" + env.getValue());
-    }
-
-    String cmd = "ls -al";
-    Runtime run = Runtime.getRuntime();
-    Process pr = null;
-    try {
-      pr = run.exec(cmd);
-      pr.waitFor();
-
-      BufferedReader buf = new BufferedReader(new InputStreamReader(pr.getInputStream()));
-      String line = "";
-      while ((line=buf.readLine())!=null) {
-        LOG.info("System CWD content: " + line);
-        System.out.println("System CWD content: " + line);
-      }
-      buf.close();
-    } catch (IOException e) {
-      e.printStackTrace();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
     }
   }
 
@@ -251,28 +222,45 @@ public class ApplicationMaster {
         + ", clustertimestamp=" + appAttemptID.getApplicationId().getClusterTimestamp()
         + ", attemptId=" + appAttemptID.getAttemptId());
 
-    if (envs.containsKey(MPIConstants.MPIEXECLOCATION)) {
-      hdfsMPIExecLocation = envs.get(MPIConstants.MPIEXECLOCATION);
-
-      if (envs.containsKey(MPIConstants.MPIEXECTIMESTAMP)) {
-        hdfsMPIExecTimestamp = Long.valueOf(envs.get(MPIConstants.MPIEXECTIMESTAMP));
-      }
-      if (envs.containsKey(MPIConstants.MPIEXECLEN)) {
-        hdfsMPIExecLen = Long.valueOf(envs.get(MPIConstants.MPIEXECLEN));
-      }
-
-      if (!hdfsMPIExecLocation.isEmpty()
-          && (hdfsMPIExecTimestamp <= 0
-          || hdfsMPIExecLen <= 0)) {
-        LOG.error("Illegal values in env for shell script path"
-            + ", path=" + hdfsMPIExecLocation
-            + ", len=" + hdfsMPIExecLen
-            + ", timestamp=" + hdfsMPIExecTimestamp);
-        throw new IllegalArgumentException("Illegal values in env for shell script path");
-      }
+    assert(envs.containsKey(MPIConstants.MPIEXECLOCATION));
+    hdfsMPIExecLocation = envs.get(MPIConstants.MPIEXECLOCATION);
+    LOG.info("HDFS mpi application location: " + hdfsMPIExecLocation);
+    if (envs.containsKey(MPIConstants.MPIEXECTIMESTAMP)) {
+      hdfsMPIExecTimestamp = Long.valueOf(envs.get(MPIConstants.MPIEXECTIMESTAMP));
+    }
+    if (envs.containsKey(MPIConstants.MPIEXECLEN)) {
+      hdfsMPIExecLen = Long.valueOf(envs.get(MPIConstants.MPIEXECLEN));
+    }
+    if (!hdfsMPIExecLocation.isEmpty()
+        && (hdfsMPIExecTimestamp <= 0
+        || hdfsMPIExecLen <= 0)) {
+      LOG.error("Illegal values in env for shell script path"
+          + ", path=" + hdfsMPIExecLocation
+          + ", len=" + hdfsMPIExecLen
+          + ", timestamp=" + hdfsMPIExecTimestamp);
+      throw new IllegalArgumentException("Illegal values in env for mpi app path");
     }
 
-    // FIXME MPI executable local directory, hard coding
+    assert(envs.containsKey(MPIConstants.APPJARLOCATION));
+    hdfsAppJarLocation = envs.get(MPIConstants.APPJARLOCATION);
+    LOG.info("HDFS AppMaster.jar location: " + hdfsAppJarLocation);
+    if (envs.containsKey(MPIConstants.APPJARTIMESTAMP)) {
+      hdfsAppJarTimeStamp = Long.valueOf(envs.get(MPIConstants.APPJARTIMESTAMP));
+    }
+    if (envs.containsKey(MPIConstants.APPJARLEN)) {
+      hdfsAppJarLen = Long.valueOf(envs.get(MPIConstants.APPJARLEN));
+    }
+    if (!hdfsAppJarLocation.isEmpty()
+        && (hdfsAppJarTimeStamp <= 0
+        || hdfsAppJarLen <= 0)) {
+      LOG.error("Illegal values in env for shell script path"
+          + ", path=" + hdfsAppJarLocation
+          + ", len=" + hdfsAppJarLen
+          + ", timestamp=" + hdfsAppJarTimeStamp);
+      throw new IllegalArgumentException("Illegal values in env for AppMaster.jar path");
+    }
+
+    // FIXME MPI executable local directory, hard coding '/home/hadoop'
     mpiExecDir = "/home/hadoop/mpiexecs/" + appAttemptID.toString();
 
     containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "10"));
@@ -378,7 +366,7 @@ public class ApplicationMaster {
         if (!hosts.contains(host)) {
           hosts.add(host);
           allContainers.add(allocatedContainer);
-          LOG.info("Launching shell command on a new container."
+          LOG.info("Launching command on a new container."
               + ", containerId=" + allocatedContainer.getId()
               + ", containerNode=" + allocatedContainer.getNodeId().getHost()
               + ":" + allocatedContainer.getNodeId().getPort()
@@ -642,12 +630,12 @@ public class ApplicationMaster {
       this.cm = ((ContainerManager) rpc.getProxy(ContainerManager.class, cmAddress, conf));
     }
 
-    @Override
     /**
      * Connects to CM, sets up container launch context
      * for shell command and eventually dispatches the container
      * start request to the CM.
      */
+    @Override
     public void run() {
       // Connect to ContainerManager
       connectToCM();
@@ -663,38 +651,47 @@ public class ApplicationMaster {
       ctx.setUser(jobUserName);
       LOG.info("Setting user in ContainerLaunchContext to: " + jobUserName);
 
-      // Set the local resources
+      // Set the local resources for each container
       Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
-      // The container for the eventual shell commands needs its own local resources too.
-      // In this scenario, if a shell script is specified, we need to have it copied
-      // and made available to the container.
-      if (!mpiExecDir.isEmpty()) {
-        LocalResource mpiRsrc = Records.newRecord(LocalResource.class);
-        mpiRsrc.setType(LocalResourceType.FILE);
-        mpiRsrc.setVisibility(LocalResourceVisibility.PUBLIC);
-        try {
-          mpiRsrc.setResource(ConverterUtils.getYarnUrlFromURI(new URI(mpiExecDir)));
-        } catch (URISyntaxException e) {
-          LOG.error("Error when trying to use shell script path specified in env"
-              + ", path=" + mpiExecDir);
-          e.printStackTrace();
-          return;
-        }
-        mpiRsrc.setTimestamp(hdfsMPIExecTimestamp);
-        mpiRsrc.setSize(hdfsMPIExecLen);
-        localResources.put("MPIExec", mpiRsrc);
+      assert(!hdfsMPIExecLocation.isEmpty());
+      LocalResource mpiRsrc = Records.newRecord(LocalResource.class);
+      mpiRsrc.setType(LocalResourceType.FILE);
+      mpiRsrc.setVisibility(LocalResourceVisibility.PUBLIC);
+      try {
+        mpiRsrc.setResource(ConverterUtils.getYarnUrlFromURI(new URI(hdfsMPIExecLocation)));
+      } catch (URISyntaxException e) {
+        LOG.error("Error when trying to use mpi application path specified in env"
+            + ", path=" + hdfsMPIExecLocation);
+        e.printStackTrace();
+        return;
       }
+      mpiRsrc.setTimestamp(hdfsMPIExecTimestamp);
+      mpiRsrc.setSize(hdfsMPIExecLen);
+      localResources.put("MPIExec", mpiRsrc);
+      assert(!hdfsAppJarLocation.isEmpty());
+      LocalResource appJarRsrc = Records.newRecord(LocalResource.class);
+      appJarRsrc.setType(LocalResourceType.FILE);
+      appJarRsrc.setVisibility(LocalResourceVisibility.PUBLIC);
+      try {
+        appJarRsrc.setResource(ConverterUtils.getYarnUrlFromURI(new URI(hdfsAppJarLocation)));
+      } catch (URISyntaxException e) {
+        LOG.error("Error when trying to use appmaster.jar path specified in env"
+            + ", path=" + hdfsAppJarLocation);
+        e.printStackTrace();
+        return;
+      }
+      appJarRsrc.setTimestamp(hdfsAppJarTimeStamp);
+      appJarRsrc.setSize(hdfsAppJarLen);
+      localResources.put("AppMaster.jar", appJarRsrc);
       ctx.setLocalResources(localResources);
 
       // Set the env variables to be setup in the env where the container will be run
       LOG.info("Set the environment for the application master");
       Map<String, String> env = new HashMap<String, String>();
-      // Add AppMaster.jar location to classpath
-      // At some point we should not be required to add
-      // the hadoop specific classpaths to the env.
-      // It should be provided out of the box.
-      // For now setting all required classpaths including
-      // the classpath to "." for the application jar
+      // Add AppMaster.jar location to classpath. At some point we should not be
+      // required to add the hadoop specific classpaths to the env. It should be
+      // provided out of the box. For now setting all required classpaths
+      // including the classpath to "." for the application jar
       StringBuilder classPathEnv = new StringBuilder("${CLASSPATH}:./*");
       for (String c : conf.getStrings(
           YarnConfiguration.YARN_APPLICATION_CLASSPATH,
@@ -713,17 +710,11 @@ public class ApplicationMaster {
       vargs.add("-Xmx" + containerMemory + "m");
       vargs.add("com.taobao.yarn.mpi.server.Container");
       // Add log redirect params
-      // TODO We should redirect the output to hdfs instead of local logs
-      // so as to be able to look at the final output after the containers
-      // have been released.
-      // Could use a path suffixed with /AppId/AppAttempId/ContainerId/std[out|err]
-      // FIXME how should we do with logs?
+      // FIXME Redirect the output to HDFS
       vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
       vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
-
       // Commands to be executed
       List<String> commands = new ArrayList<String>();
-
       // Get final daemonCmd, add spaces to each varg
       StringBuilder containerCmd = new StringBuilder();
       // Set executable command
@@ -731,7 +722,6 @@ public class ApplicationMaster {
         containerCmd.append(str).append(" ");
       }
       commands.add(containerCmd.toString());
-
       LOG.info("Executing command: " + commands.toString());
       ctx.setCommands(commands);
 
@@ -745,8 +735,6 @@ public class ApplicationMaster {
         e.printStackTrace();
         // TODO do we need to release this container?
       }
-
-      container.setState(ContainerState.RUNNING);
 
       // TODO Wait for all the container launch correctly
 
@@ -799,7 +787,6 @@ public class ApplicationMaster {
     appMasterRequest.setHost(appMasterHostname);
     appMasterRequest.setRpcPort(appMasterRpcPort);
     appMasterRequest.setTrackingUrl(appMasterTrackingUrl);
-
     return resourceManager.registerApplicationMaster(appMasterRequest);
   }
 
