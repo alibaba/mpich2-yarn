@@ -21,7 +21,7 @@ public class Container {
 
     Runtime rt = Runtime.getRuntime();
     // TODO This need need hack the smpd_cmd_args.c, to add an option set bService
-    // TODO hard coding password
+    // FIXME hard coding password
     final Process pc = rt.exec("smpd -phrase 123456 -debug");
 
     Thread stdOutThread = new Thread(new Runnable() {
@@ -54,8 +54,10 @@ public class Container {
     Map<String, String> envs = System.getenv();
     String mpiExecDir = envs.get("MPIEXECDIR");
     LocalFileUtils.mkdirs(mpiExecDir);
-    File mpiexec = new File("./MPIExec");
-    LocalFileUtils.copyFile(mpiexec, new File(mpiExecDir + "/MPIExec"));
+    File mpiexecCwd = new File("./MPIExec");
+    File mpiexecSame = new File(mpiExecDir + "/MPIExec");
+    LocalFileUtils.copyFile(mpiexecCwd, mpiexecSame);
+    mpiexecSame.setExecutable(true);
   }
 
   /**

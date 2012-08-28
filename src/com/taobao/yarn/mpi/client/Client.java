@@ -230,7 +230,6 @@ public class Client {
    */
   public boolean run() throws IOException {
     LOG.info("Starting Client");
-
     // Connect to ResourceManager
     connectToASM();
     assert(applicationsManager != null);
@@ -369,11 +368,9 @@ public class Client {
     env.put(MPIConstants.APPJARTIMESTAMP, Long.toString(appJarDestStatus.getModificationTime()));
     env.put(MPIConstants.APPJARLEN, Long.toString(appJarDestStatus.getLen()));
 
-    // Add AppMaster.jar location to classpath
-    // At some point we should not be required to add
-    // the hadoop specific classpaths to the env.
-    // It should be provided out of the box.
-    // For now setting all required classpaths including
+    // Add AppMaster.jar location to classpath. At some point we should not be
+    // required to add the hadoop specific classpaths to the env. It should be
+    // provided out of the box. For now setting all required classpaths including
     // the classpath to "." for the application jar
     StringBuilder classPathEnv = new StringBuilder("${CLASSPATH}:./*");
     for (String c : conf.getStrings(
@@ -382,19 +379,16 @@ public class Client {
       classPathEnv.append(':');
       classPathEnv.append(c.trim());
     }
-
     // add the runtime classpath needed for tests to work
     String testRuntimeClassPath = Client.getTestRuntimeClasspath();
     classPathEnv.append(':');
     classPathEnv.append(testRuntimeClassPath);
-
     env.put("CLASSPATH", classPathEnv.toString());
 
     amContainer.setEnvironment(env);
 
     // Set the necessary command to execute the application master
     Vector<CharSequence> vargs = new Vector<CharSequence>(30);
-
     // Set java executable command
     LOG.info("Setting up app master command");
     vargs.add("${JAVA_HOME}" + "/bin/java");
@@ -409,10 +403,8 @@ public class Client {
     if (debugFlag) {
       vargs.add("--debug");
     }
-
     vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stdout");
     vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stderr");
-
     // Get final commmand
     StringBuilder command = new StringBuilder();
     for (CharSequence str : vargs) {
@@ -429,10 +421,6 @@ public class Client {
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(amMemory);
     amContainer.setResource(capability);
-
-    // Service data is a binary blob that can be passed to the application
-    // Not needed in this scenario
-    // amContainer.setServiceData(serviceData);
 
     // The following are not required for launching an application master
     // amContainer.setContainerId(containerId);
@@ -459,9 +447,7 @@ public class Client {
     LOG.info("Submitting application to ASM");
     applicationsManager.submitApplication(appRequest);
 
-    // TODO
-    // Try submitting the same request again
-    // app submission failure?
+    // TODO Try submitting the same request again. app submission failure?
 
     // Monitor the application
     return monitorApplication(appId);
@@ -477,10 +463,9 @@ public class Client {
   private boolean monitorApplication(ApplicationId appId) throws YarnRemoteException {
 
     while (true) {
-
       // Check app status every 1 second.
       try {
-        Thread.sleep(1000);
+        Thread.sleep(1000);  // FIXME hard code
       } catch (InterruptedException e) {
         LOG.debug("Thread sleep in monitoring loop interrupted");
       }
@@ -542,12 +527,9 @@ public class Client {
   private void killApplication(ApplicationId appId) throws YarnRemoteException {
     KillApplicationRequest request = Records.newRecord(KillApplicationRequest.class);
     // TODO clarify whether multiple jobs with the same app id can be submitted and be running at
-    // the same time.
-    // If yes, can we kill a particular attempt only?
+    // the same time. If yes, can we kill a particular attempt only?
     request.setApplicationId(appId);
-    // KillApplicationResponse response = applicationsManager.forceKillApplication(request);
-    // Response can be ignored as it is non-null on success or
-    // throws an exception in case of failures
+    // Response can be ignored as it is non-null on success or throws an exception in case of failures
     applicationsManager.forceKillApplication(request);
   }
 
@@ -557,23 +539,6 @@ public class Client {
    * @throws IOException
    */
   private void connectToASM() throws IOException {
-
-    /*
-        UserGroupInformation user = UserGroupInformation.getCurrentUser();
-        applicationsManager = user.doAs(new PrivilegedAction<ClientRMProtocol>() {
-            public ClientRMProtocol run() {
-                InetSocketAddress rmAddress = NetUtils.createSocketAddr(conf.get(
-                    YarnConfiguration.RM_SCHEDULER_ADDRESS,
-                    YarnConfiguration.DEFAULT_RM_SCHEDULER_ADDRESS));
-                LOG.info("Connecting to ResourceManager at " + rmAddress);
-                Configuration appsManagerServerConf = new Configuration(conf);
-                appsManagerServerConf.setClass(YarnConfiguration.YARN_SECURITY_INFO,
-                ClientRMSecurityInfo.class, SecurityInfo.class);
-                ClientRMProtocol asm = ((ClientRMProtocol) rpc.getProxy(ClientRMProtocol.class, rmAddress, appsManagerServerConf));
-                return asm;
-            }
-        });
-     */
     YarnConfiguration yarnConf = new YarnConfiguration(conf);
     InetSocketAddress rmAddress = yarnConf.getSocketAddr(
         YarnConfiguration.RM_ADDRESS,
@@ -597,14 +562,12 @@ public class Client {
   }
 
   private static String getTestRuntimeClasspath() {
-
     InputStream classpathFileStream = null;
     BufferedReader reader = null;
     String envClassPath = "";
 
     LOG.info("Trying to generate classpath for app master from current thread's classpath");
     try {
-
       // Create classpath from generated classpath
       // Check maven ppom.xml for generated classpath info
       // Works if compile time env is same as runtime. Mainly tests.

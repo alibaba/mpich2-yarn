@@ -60,7 +60,6 @@ import com.taobao.yarn.mpi.MPIConstants;
 public class ApplicationMaster {
 
   private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
-
   // Configuration
   private final Configuration conf;
   // YARN RPC to communicate with the Resource Manager or Node Manager
@@ -98,10 +97,8 @@ public class ApplicationMaster {
   // Needed as once requested, we should not request for containers again and again.
   // Only request for more if the original requirement changes.
   private final AtomicInteger numRequestedContainers = new AtomicInteger();
-
   // Containers to be released
   private final CopyOnWriteArrayList<ContainerId> releasedContainers = new CopyOnWriteArrayList<ContainerId>();
-
   // Launch threads
   private final List<Thread> launchThreads = new ArrayList<Thread>();
   // Hosts
@@ -270,7 +267,6 @@ public class ApplicationMaster {
     LOG.info("Number of total containers is " + numTotalContainers);
 
     requestPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
-
     return true;
   }
 
@@ -471,9 +467,7 @@ public class ApplicationMaster {
           + ", failed=" + numFailedContainers
           + ", currentAllocated=" + numAllocatedContainers);
 
-      // TODO
-      // Add a timeout handling layer
-      // for misbehaving shell commands
+      // TODO Add a timeout handling layer, for misbehaving shell commands
     }  // end while
 
     // Join all launched threads
@@ -517,6 +511,8 @@ public class ApplicationMaster {
    * @throws IOException
    */
   private void launchMpiExec() throws IOException {
+    LOG.info("Launching mpiexec from the Application Master...");
+
     StringBuilder commandBuilder = new StringBuilder("mpiexec -hosts ");
     commandBuilder.append(hosts.size());
     for (String host : hosts) {
