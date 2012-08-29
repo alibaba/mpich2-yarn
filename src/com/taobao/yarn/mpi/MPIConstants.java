@@ -23,6 +23,11 @@ public class MPIConstants {
   public static final String MPIEXECLEN = "MPIEXECLEN";
 
   /**
+   * Environment key name denoting MPI options
+   */
+  public static final String MPIOPTIONS = "MPIOPTIONS";
+
+  /**
    * Environment key name pointing to the hdfs location of appmaster.jar
    */
   public static final String APPJARLOCATION = "APPJARLOCATION";

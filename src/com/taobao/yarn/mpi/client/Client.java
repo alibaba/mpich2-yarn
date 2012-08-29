@@ -86,8 +86,6 @@ public class Client {
   private int amMemory = 10;
   // Application master jar file
   private String appMasterJar = "";
-  // Main class to invoke application master
-  private final String appMasterMainClass = "com.taobao.yarn.mpi.server.ApplicationMaster";
   // Shell Command Container priority
   private int containerPriority = 0;
   // Amt of memory to request for container in which shell script will be executed
@@ -99,7 +97,9 @@ public class Client {
   // Timeout threshold for client. Kill app after time interval expires.
   private long clientTimeout = 24 * 60 * 60 * 1000;  // 86400000 ms, 24 hours
   // Location of the MPI application
-  private String mpiApplication;
+  private String mpiApplication = "";
+  // MPI Options
+  private String mpiOptions = "";
   // Debug flag
   boolean debugFlag = false;
 
@@ -111,8 +111,7 @@ public class Client {
     try {
       Client client = new Client();
       LOG.info("Initializing Client");
-      boolean doRun = client.init(args);
-      if (!doRun) {
+      if (!client.init(args)) {
         System.exit(0);
       }
       result = client.run();
@@ -161,24 +160,20 @@ public class Client {
   public boolean init(String[] args) throws ParseException {
 
     Options opts = new Options();
-    opts.addOption("priority", true, "Application Priority. Default 0");
-    opts.addOption("queue", true, "RM Queue in which this application is to be submitted");
-    opts.addOption("timeout", true, "Application timeout in milliseconds, default is 86400000ms, i.e. 24hours");
-    opts.addOption("master_memory", true, "Amount of memory in MB to be requested to run the application master");
-    opts.addOption("mpi_application", true, "Location of the mpi application to be executed");
-    opts.addOption("container_priority", true, "Priority for the shell command containers");
-    opts.addOption("container_memory", true, "Amount of memory in MB to be requested to run the shell command");
-    opts.addOption("num_containers", true, "No. of containers on which the mpi program needs to be executed");
-    opts.addOption("debug", false, "Dump out debug information");
-    opts.addOption("help", false, "Print usage");
+    opts.addOption("M", "master-memory", true, "Amount of memory in MB to be requested to run the application master");
+    opts.addOption("m", "container-memory", true, "Amount of memory in MB to be requested to run the shell command");
+    opts.addOption("a", "mpi-application", true, "Location of the mpi application to be executed");
+    opts.addOption("o", "mpi-options", true, "Options for mpi program");
+    opts.addOption("P", "priority", true, "Application Priority. Default 0");
+    opts.addOption("p", "container-priority", true, "Priority for the shell command containers");
+    opts.addOption("q", "queue", true, "RM Queue in which this application is to be submitted");
+    opts.addOption("t", "timeout", true, "Wall time, Application timeout in milliseconds, default is 86400000ms, i.e. 24hours");
+    opts.addOption("n", "num-containers", true, "No. of containers on which the mpi program needs to be executed");
+    opts.addOption("d", "debug", false, "Dump out debug information");
+    opts.addOption("h", "help", false, "Print usage");
     CommandLine cliParser = new GnuParser().parse(opts, args);
 
-    if (args.length == 0) {
-      printUsage(opts);
-      throw new IllegalArgumentException("No args specified for client to initialize");
-    }
-
-    if (cliParser.hasOption("help")) {
+    if (args.length == 0 || cliParser.hasOption("help")) {
       printUsage(opts);
       return false;
     }
@@ -189,7 +184,7 @@ public class Client {
 
     amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
     amQueue = cliParser.getOptionValue("queue", "default");
-    amMemory = Integer.parseInt(cliParser.getOptionValue("master_memory", "10"));
+    amMemory = Integer.parseInt(cliParser.getOptionValue("master-memory", "64"));
 
     if (amMemory <= 0) {
       throw new IllegalArgumentException("Invalid memory specified for application master, exiting."
@@ -200,17 +195,22 @@ public class Client {
     LOG.info("Application Master's jar is " + appMasterJar);
 
     // MPI executable program
-    if (!cliParser.hasOption("mpi_application")) {
+    if (!cliParser.hasOption("mpi-application")) {
       throw new IllegalArgumentException("No mpi executable program specified, exiting.");
     }
-    mpiApplication = cliParser.getOptionValue("mpi_application");
+    mpiApplication = cliParser.getOptionValue("mpi-application");
     appName += mpiApplication;
 
-    containerPriority = Integer.parseInt(cliParser.getOptionValue("container_priority", "0"));
+    if (cliParser.hasOption("mpi-options")) {
+      mpiOptions = cliParser.getOptionValue("mpi-options");
+    }
 
-    containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "10"));
+    containerPriority = Integer.parseInt(cliParser.getOptionValue("container-priority", "0"));
 
-    numContainers = Integer.parseInt(cliParser.getOptionValue("num_containers", "1"));
+    containerMemory = Integer.parseInt(cliParser.getOptionValue("container-memory", "64"));
+
+    numContainers = Integer.parseInt(cliParser.getOptionValue("num-containers", "1"));
+    LOG.info("Container number is " + numContainers);
 
     if (containerMemory < 0 || numContainers < 1) {
       throw new IllegalArgumentException("Invalid no. of containers or container memory specified, exiting."
@@ -367,6 +367,9 @@ public class Client {
     env.put(MPIConstants.APPJARLOCATION, appJarDst.toUri().toString());
     env.put(MPIConstants.APPJARTIMESTAMP, Long.toString(appJarDestStatus.getModificationTime()));
     env.put(MPIConstants.APPJARLEN, Long.toString(appJarDestStatus.getLen()));
+    if (!mpiOptions.isEmpty()) {
+      env.put(MPIConstants.MPIOPTIONS, mpiOptions);
+    }
 
     // Add AppMaster.jar location to classpath. At some point we should not be
     // required to add the hadoop specific classpaths to the env. It should be
@@ -395,7 +398,7 @@ public class Client {
     // Set Xmx based on am memory size
     vargs.add("-Xmx" + amMemory + "m");
     // Set class name
-    vargs.add(appMasterMainClass);
+    vargs.add("com.taobao.yarn.mpi.server.ApplicationMaster");
     // Set params for Application Master
     vargs.add("--container_memory " + String.valueOf(containerMemory));
     vargs.add("--num_containers " + String.valueOf(numContainers));

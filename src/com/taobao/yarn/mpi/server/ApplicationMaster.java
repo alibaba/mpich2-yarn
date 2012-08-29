@@ -116,6 +116,8 @@ public class ApplicationMaster {
   private long hdfsAppJarLen;
   // MPI Exec local dir, eath node must have the same dir
   private String mpiExecDir;
+  // MPI program options
+  private String mpiOptions = "";
 
   /**
    * @param args Command line args
@@ -175,6 +177,7 @@ public class ApplicationMaster {
     opts.addOption("container_memory", true, "Amount of memory in MB to be requested to run the shell command");
     opts.addOption("num_containers", true, "No. of containers on which the shell command needs to be executed");
     opts.addOption("priority", true, "Application Priority. Default 0");
+    opts.addOption("o", "mpi-options", true, "MPI Program Options");
     opts.addOption("debug", false, "Dump out debug information");
     opts.addOption("help", false, "Print usage");
     CommandLine cliParser = new GnuParser().parse(opts, args);
@@ -204,8 +207,7 @@ public class ApplicationMaster {
       if (cliParser.hasOption("app_attempt_id")) {
         String appIdStr = cliParser.getOptionValue("app_attempt_id", "");
         appAttemptID = ConverterUtils.toApplicationAttemptId(appIdStr);
-      }
-      else {
+      } else {
         throw new IllegalArgumentException("Application Attempt Id not set in the environment");
       }
     } else {
@@ -254,6 +256,11 @@ public class ApplicationMaster {
           + ", len=" + hdfsAppJarLen
           + ", timestamp=" + hdfsAppJarTimeStamp);
       throw new IllegalArgumentException("Illegal values in env for AppMaster.jar path");
+    }
+
+    if (envs.containsKey(MPIConstants.MPIOPTIONS)) {
+      mpiOptions = envs.get(MPIConstants.MPIOPTIONS);
+      LOG.info("Got extra MPI options: \"" + mpiOptions + "\"");
     }
 
     // FIXME MPI executable local directory, hard coding '/home/hadoop'
@@ -520,6 +527,10 @@ public class ApplicationMaster {
     commandBuilder.append(" ");
     commandBuilder.append(mpiExecDir);
     commandBuilder.append("/MPIExec");
+    if (!mpiOptions.isEmpty()) {
+      commandBuilder.append(" ");
+      commandBuilder.append(mpiOptions);
+    }
     LOG.info("Executing command:" + commandBuilder.toString());
     Runtime rt = Runtime.getRuntime();
 
