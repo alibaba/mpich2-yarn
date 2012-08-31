@@ -425,9 +425,6 @@ public class Client {
     capability.setMemory(amMemory);
     amContainer.setResource(capability);
 
-    // The following are not required for launching an application master
-    // amContainer.setContainerId(containerId);
-
     appContext.setAMContainerSpec(amContainer);
 
     // Set the priority for the application master

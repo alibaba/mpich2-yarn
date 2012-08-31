@@ -127,8 +127,7 @@ public class ApplicationMaster {
     try {
       ApplicationMaster appMaster = new ApplicationMaster();
       LOG.info("Initializing ApplicationMaster");
-      boolean doRun = appMaster.init(args);
-      if (!doRun) {
+      if (!appMaster.init(args)) {
         System.exit(0);
       }
       result = appMaster.run();
