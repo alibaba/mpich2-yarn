@@ -27,16 +27,8 @@ import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationReportRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationReportResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.GetClusterMetricsRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.GetClusterMetricsResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.GetQueueInfoRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.GetQueueInfoResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.GetQueueUserAclsInfoRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.GetQueueUserAclsInfoResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
@@ -47,11 +39,7 @@ import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
-import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.Priority;
-import org.apache.hadoop.yarn.api.records.QueueACL;
-import org.apache.hadoop.yarn.api.records.QueueInfo;
-import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
@@ -234,49 +222,10 @@ public class Client {
     connectToASM();
     assert(applicationsManager != null);
 
-    // Use ClientRMProtocol handle to general cluster information
-    GetClusterMetricsRequest clusterMetricsReq = Records.newRecord(GetClusterMetricsRequest.class);
-    GetClusterMetricsResponse clusterMetricsResp = applicationsManager.getClusterMetrics(clusterMetricsReq);
-    LOG.info("Got Cluster metric info from ASM, numNodeManagers="
-        + clusterMetricsResp.getClusterMetrics().getNumNodeManagers());
-
-    GetClusterNodesRequest clusterNodesReq = Records.newRecord(GetClusterNodesRequest.class);
-    GetClusterNodesResponse clusterNodesResp = applicationsManager.getClusterNodes(clusterNodesReq);
-    LOG.info("Got Cluster node info from ASM");
-    for (NodeReport node : clusterNodesResp.getNodeReports()) {
-      LOG.info("Got node report from ASM for"
-          + ", nodeId=" + node.getNodeId()
-          + ", nodeAddress" + node.getHttpAddress()
-          + ", nodeRackName" + node.getRackName()
-          + ", nodeNumContainers" + node.getNumContainers()
-          + ", nodeHealthStatus" + node.getNodeHealthStatus());
-    }
-
-    GetQueueInfoRequest queueInfoReq = Records.newRecord(GetQueueInfoRequest.class);
-    queueInfoReq.setQueueName(this.amQueue);
-    GetQueueInfoResponse queueInfoResp = applicationsManager.getQueueInfo(queueInfoReq);
-    QueueInfo queueInfo = queueInfoResp.getQueueInfo();
-    LOG.info("Queue info"
-        + ", queueName=" + queueInfo.getQueueName()
-        + ", queueCurrentCapacity=" + queueInfo.getCurrentCapacity()
-        + ", queueMaxCapacity=" + queueInfo.getMaximumCapacity()
-        + ", queueApplicationCount=" + queueInfo.getApplications().size()
-        + ", queueChildQueueCount=" + queueInfo.getChildQueues().size());
-
-    GetQueueUserAclsInfoRequest queueUserAclsReq = Records.newRecord(GetQueueUserAclsInfoRequest.class);
-    GetQueueUserAclsInfoResponse queueUserAclsResp = applicationsManager.getQueueUserAcls(queueUserAclsReq);
-    List<QueueUserACLInfo> listAclInfo = queueUserAclsResp.getUserAclsInfoList();
-    for (QueueUserACLInfo aclInfo : listAclInfo) {
-      for (QueueACL userAcl : aclInfo.getUserAcls()) {
-        LOG.info("User ACL Info for Queue"
-            + ", queueName=" + aclInfo.getQueueName()
-            + ", userAcl=" + userAcl.name());
-      }
-    }
-
     // Get a new application id
     GetNewApplicationResponse newApp = getApplication();
     ApplicationId appId = newApp.getApplicationId();
+    LOG.info("Got Applicatioin: " + appId.toString());
 
     // TODO get min/max resource capabilities from RM and change memory ask if needed
     // If we do not have min/max, we may not be able to correctly request
@@ -288,8 +237,8 @@ public class Client {
     LOG.info("Min mem capabililty of resources in this cluster " + minMem);
     LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
 
-    // A resource ask has to be atleast the minimum of the capability of the cluster, the value has to be
-    // a multiple of the min value and cannot exceed the max.
+    // A resource ask has to be atleast the minimum of the capability of the cluster,
+    // the value has to be a multiple of the min value and cannot exceed the max.
     // If it is not an exact multiple of min, the RM will allocate to the nearest multiple of min
     if (amMemory < minMem) {
       LOG.info("AM memory specified below min threshold of cluster. Using min value."
@@ -526,8 +475,8 @@ public class Client {
    */
   private void killApplication(ApplicationId appId) throws YarnRemoteException {
     KillApplicationRequest request = Records.newRecord(KillApplicationRequest.class);
-    // TODO clarify whether multiple jobs with the same app id can be submitted and be running at
-    // the same time. If yes, can we kill a particular attempt only?
+    // TODO clarify whether multiple jobs with the same app id can be submitted
+    // and be running at the same time. If yes, can we kill a particular attempt only?
     request.setApplicationId(appId);
     // Response can be ignored as it is non-null on success or throws an exception in case of failures
     applicationsManager.forceKillApplication(request);
