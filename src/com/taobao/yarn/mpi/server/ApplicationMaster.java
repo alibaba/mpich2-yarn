@@ -13,7 +13,6 @@ import java.util.Map.Entry;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.Vector;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.cli.CommandLine;
@@ -27,6 +26,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.yarn.api.AMRMProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.api.ClientRMProtocol;
 import org.apache.hadoop.yarn.api.ContainerManager;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
@@ -39,13 +39,11 @@ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
-import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
-import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
@@ -55,6 +53,8 @@ import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
 import com.taobao.yarn.mpi.MPIConstants;
+import com.taobao.yarn.mpi.allocator.ContainersAllocator;
+import com.taobao.yarn.mpi.allocator.DistinctContainersAllocator;
 
 public class ApplicationMaster {
 
@@ -65,6 +65,8 @@ public class ApplicationMaster {
   private final YarnRPC rpc;
   // Handle to communicate with the Resource Manager
   private AMRMProtocol resourceManager;
+  // Handle to talk to the Resource Manager/Applications Manager
+  private final ClientRMProtocol applicationsManager;
   // Application Attempt Id ( combination of attemptId and fail count )
   private ApplicationAttemptId appAttemptID;
   // TODO For status update for clients - yet to be implemented.
@@ -81,23 +83,12 @@ public class ApplicationMaster {
   private int containerMemory = 10;
   // Priority of the request
   private int requestPriority;
-  // Incremental counter for rpc calls to the RM
-  private final AtomicInteger rmRequestID = new AtomicInteger();
   // Simple flag to denote whether all works is done
   private boolean appDone = false;
   // Counter for completed containers ( complete denotes successful or failed )
   private final AtomicInteger numCompletedContainers = new AtomicInteger();
-  // Allocated container count so that we know how many containers has the RM
-  // allocated to us
-  private final AtomicInteger numAllocatedContainers = new AtomicInteger();
   // Count of failed containers
   private final AtomicInteger numFailedContainers = new AtomicInteger();
-  // Count of containers already requested from the RM
-  // Needed as once requested, we should not request for containers again and again.
-  // Only request for more if the original requirement changes.
-  private final AtomicInteger numRequestedContainers = new AtomicInteger();
-  // Containers to be released
-  private final CopyOnWriteArrayList<ContainerId> releasedContainers = new CopyOnWriteArrayList<ContainerId>();
   // Launch threads
   private final List<Thread> launchThreads = new ArrayList<Thread>();
   // Hosts
@@ -160,6 +151,7 @@ public class ApplicationMaster {
     // Set up the configuration and RPC
     conf = new Configuration();
     rpc = YarnRPC.create(conf);
+    applicationsManager = connectToASM();
   }
 
   /**
@@ -312,7 +304,7 @@ public class ApplicationMaster {
       LOG.info("Container memory specified below min threshold of cluster. Using min value."
           + ", specified=" + containerMemory
           + ", min=" + minMem);
-      containerMemory = minMem;
+      containerMemory = minMem;  // container memory should be multiple of minMem
     } else if (containerMemory > maxMem) {
       LOG.info("Container memory specified above max threshold of cluster. Using max value."
           + ", specified=" + containerMemory
@@ -333,61 +325,27 @@ public class ApplicationMaster {
     // Keep looping until all the containers are launched and shell script executed on them
     // ( regardless of success/failure).
 
-    // All allocated containers
-    List<Container> allContainers = new ArrayList<Container>();
-    while (numTotalContainers > numAllocatedContainers.get()) {
-      // log current requesting state
-      LOG.info("Current requesting state: total=" + numTotalContainers
-          + ", requested=" + numRequestedContainers
-          + ", allocated=" + numAllocatedContainers);
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        LOG.warn("Sleep interrupted " + e.getMessage());
-      }
-      int askCount = numTotalContainers - numAllocatedContainers.get();
-      numRequestedContainers.addAndGet(askCount);
-      List<ResourceRequest> resourceReq = new ArrayList<ResourceRequest>();
-      if (askCount > 0) {
-        ResourceRequest containerAsk = setupContainerAskForRM(askCount);
-        resourceReq.add(containerAsk);
-      }
-      // Send the request to RM
-      LOG.info("Asking RM for containers, askCount=" + askCount);
-      AMResponse amResp = sendContainerAskToRM(resourceReq);
-
-      // Retrieve list of allocated containers from the response
-      List<Container> allocatedContainers = amResp.getAllocatedContainers();
-      LOG.info("Got response from RM for container ask, allocatedCount="
-          + allocatedContainers.size());
-      numAllocatedContainers.addAndGet(allocatedContainers.size());
-
-      for (Container allocatedContainer : allocatedContainers) {
-        String host = allocatedContainer.getNodeId().getHost();
-        if (!hosts.contains(host)) {
-          hosts.add(host);
-          allContainers.add(allocatedContainer);
-          LOG.info("Launching command on a new container."
-              + ", containerId=" + allocatedContainer.getId()
-              + ", containerNode=" + allocatedContainer.getNodeId().getHost()
-              + ":" + allocatedContainer.getNodeId().getPort()
-              + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress()
-              + ", containerState" + allocatedContainer.getState()
-              + ", containerResourceMemory" + allocatedContainer.getResource().getMemory());
-          //+ ", containerToken" + allocatedContainer.getContainerToken().getIdentifier().toString());
-          LaunchContainerRunnable runnableLaunchContainer =
-              new LaunchContainerRunnable(allocatedContainer);
-          Thread launchThread = new Thread(runnableLaunchContainer);
-
-          // launch and start the container on a separate thread to keep the main thread unblocked
-          // as all containers may not be allocated at one go.
-          launchThreads.add(launchThread);
-          launchThread.start();
-        } else {
-          allocatedContainer.setState(ContainerState.COMPLETE);
-          numCompletedContainers.incrementAndGet();
-        }
-      }
+    ContainersAllocator allocator = new DistinctContainersAllocator(resourceManager,
+        applicationsManager, requestPriority, containerMemory);
+    List<Container> allContainers = allocator.allocateContainers(numTotalContainers);
+    for (Container allocatedContainer : allContainers) {
+      String host = allocatedContainer.getNodeId().getHost();
+      hosts.add(host);
+      LOG.info("Launching command on a new container."
+          + ", containerId=" + allocatedContainer.getId()
+          + ", containerNode=" + allocatedContainer.getNodeId().getHost()
+          + ":" + allocatedContainer.getNodeId().getPort()
+          + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress()
+          + ", containerState" + allocatedContainer.getState()
+          + ", containerResourceMemory" + allocatedContainer.getResource().getMemory());
+      //+ ", containerToken" + allocatedContainer.getContainerToken().getIdentifier().toString());
+      LaunchContainerRunnable runnableLaunchContainer =
+          new LaunchContainerRunnable(allocatedContainer);
+      Thread launchThread = new Thread(runnableLaunchContainer);
+      // launch and start the container on a separate thread to keep the main thread unblocked
+      // as all containers may not be allocated at one go.
+      launchThreads.add(launchThread);
+      launchThread.start();
     }
 
     // FIXME Bad Coding, wait all SMPD for staring
@@ -413,10 +371,8 @@ public class ApplicationMaster {
         e.printStackTrace();
       }
 
-      // Setup empty request to be sent to RM to let RM know we are alive
-      List<ResourceRequest> resourceReq = new ArrayList<ResourceRequest>();
       LOG.info("Sending empty request to RM, to let RM know we are alive");
-      AMResponse amResp = sendContainerAskToRM(resourceReq);
+      AMResponse amResp = sendEmptyContainerAskToRM();
 
       // Check what the current available resources in the cluster are
       // TODO should we do anything if the available resources are not enough?
@@ -451,8 +407,6 @@ public class ApplicationMaster {
         case -101:
           LOG.info("Container is not launched."
               + " containerId=" + containerStatus.getContainerId());
-          numAllocatedContainers.decrementAndGet();
-          numRequestedContainers.decrementAndGet();
           break;
         default:
           LOG.info("Something else happened."
@@ -467,10 +421,8 @@ public class ApplicationMaster {
       LOG.info("Current application state: loop=" + loopCounter
           + ", appDone=" + appDone
           + ", total=" + numTotalContainers
-          + ", requested=" + numRequestedContainers
           + ", completed=" + numCompletedContainers
-          + ", failed=" + numFailedContainers
-          + ", currentAllocated=" + numAllocatedContainers);
+          + ", failed=" + numFailedContainers);
       // TODO Add a timeout handling layer, for misbehaving mpi application
     }  // end while
 
@@ -501,7 +453,6 @@ public class ApplicationMaster {
       String diagnostics = "Diagnostics."
           + ", total=" + numTotalContainers
           + ", completed=" + numCompletedContainers.get()
-          + ", allocated=" + numAllocatedContainers.get()
           + ", failed=" + numFailedContainers.get();
       finishReq.setDiagnostics(diagnostics);
       isSuccess = false;
@@ -771,7 +722,6 @@ public class ApplicationMaster {
    */
   private RegisterApplicationMasterResponse registerToRM() throws YarnRemoteException {
     RegisterApplicationMasterRequest appMasterRequest = Records.newRecord(RegisterApplicationMasterRequest.class);
-
     // set the required info into the registration request:
     // application attempt id,
     // host on which the app master is running
@@ -785,64 +735,37 @@ public class ApplicationMaster {
   }
 
   /**
-   * Setup the request that will be sent to the RM for the container ask.
-   * @param numContainers Containers to ask for from RM
-   * @return the setup ResourceRequest to be sent to RM
+   * Connect to the Resource Manager/Applications Manager
+   * @return Handle to communicate with the ASM
+   * @throws IOException
    */
-  private ResourceRequest setupContainerAskForRM(int numContainers) {
-    ResourceRequest request = Records.newRecord(ResourceRequest.class);
-
-    // setup requirements for hosts
-    // whether a particular rack/host is needed
-    // Refer to apis under org.apache.hadoop.net for more
-    // details on how to get figure out rack/host mapping.
-    // using * as any host will do for the distributed shell app
-
-    request.setHostName("*");
-
-    // set no. of containers needed
-    request.setNumContainers(numContainers);
-
-    // set the priority for the request
-    Priority pri = Records.newRecord(Priority.class);
-    // TODO - what is the range for priority? how to decide?
-    pri.setPriority(requestPriority);
-    request.setPriority(pri);
-
-    // Set up resource type requirements
-    // For now, only memory is supported so we set memory requirements
-    Resource capability = Records.newRecord(Resource.class);
-    capability.setMemory(containerMemory);
-    request.setCapability(capability);
-
-    return request;
+  private ClientRMProtocol connectToASM() throws IOException {
+    YarnConfiguration yarnConf = new YarnConfiguration(conf);
+    InetSocketAddress rmAddress = yarnConf.getSocketAddr(
+        YarnConfiguration.RM_ADDRESS,
+        YarnConfiguration.DEFAULT_RM_ADDRESS,
+        YarnConfiguration.DEFAULT_RM_PORT);
+    LOG.info("Connecting to ResourceManager at " + rmAddress);
+    ClientRMProtocol applicationsManager = ((ClientRMProtocol) rpc.getProxy(
+        ClientRMProtocol.class, rmAddress, conf));
+    return applicationsManager;
   }
 
-  /**
-   * Ask RM to allocate given no. of containers to this Application Master
-   * @param requestedContainers Containers to ask for from RM
-   * @return Response from RM to AM with allocated containers
-   * @throws YarnRemoteException
-   */
-  private AMResponse sendContainerAskToRM(List<ResourceRequest> requestedContainers)
+  private AMResponse sendEmptyContainerAskToRM()
       throws YarnRemoteException {
+    List<ResourceRequest> requestedContainers = new ArrayList<ResourceRequest>();
     AllocateRequest req = Records.newRecord(AllocateRequest.class);
-    req.setResponseId(rmRequestID.incrementAndGet());
     req.setApplicationAttemptId(appAttemptID);
     req.addAllAsks(requestedContainers);
-    req.addAllReleases(releasedContainers);
+    req.addAllReleases(new ArrayList<ContainerId>());
     req.setProgress((float)numCompletedContainers.get()/numTotalContainers);
 
     LOG.info("Sending request to RM for containers"
         + ", requestedSet=" + requestedContainers.size()
-        + ", releasedSet=" + releasedContainers.size()
         + ", progress=" + req.getProgress());
 
     for (ResourceRequest  rsrcReq : requestedContainers) {
       LOG.info("Requested container ask: " + rsrcReq.toString());
-    }
-    for (ContainerId id : releasedContainers) {
-      LOG.info("Released container, id=" + id.getId());
     }
 
     AllocateResponse resp = resourceManager.allocate(req);
