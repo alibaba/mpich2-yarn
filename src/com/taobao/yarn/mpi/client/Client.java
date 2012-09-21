@@ -18,7 +18,6 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -42,15 +41,14 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
-import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
+import com.taobao.yarn.mpi.MPIConfiguration;
 import com.taobao.yarn.mpi.MPIConstants;
 import com.taobao.yarn.mpi.server.ApplicationMaster;
-
 
 /**
  * Client for MPI application submission to YARN.
@@ -59,7 +57,7 @@ public class Client {
 
   private static final Log LOG = LogFactory.getLog(Client.class);
   // Configuration
-  private final Configuration conf;
+  private final MPIConfiguration conf;
   // RPC to communicate to RM
   private final YarnRPC rpc;
   // Handle to talk to the Resource Manager/Applications Manager
@@ -71,7 +69,7 @@ public class Client {
   // Queue for App master
   private String amQueue = "";
   // Amt. of memory resource to request for to run the App Master
-  private int amMemory = 10;
+  private int amMemory = 64;
   // Application master jar file
   private String appMasterJar = "";
   // Shell Command Container priority
@@ -118,7 +116,7 @@ public class Client {
   /**
    * Constructor, create YarnRPC
    */
-  public Client(Configuration conf) throws Exception  {
+  public Client(MPIConfiguration conf) throws Exception  {
     // Set up the configuration and RPC
     this.conf = conf;
     rpc = YarnRPC.create(conf);
@@ -128,7 +126,7 @@ public class Client {
    * Constructor, create YarnRPC
    */
   public Client() throws Exception  {
-    this(new Configuration());
+    this(new MPIConfiguration());
   }
 
   /**
@@ -139,6 +137,16 @@ public class Client {
     new HelpFormatter().printHelp("Client", opts);
   }
 
+  // load/reload Configuration
+  public void reloadConfiguration() {
+    amMemory = conf.getInt(MPIConfiguration.MPI_EXEC_LOCATION, 64);
+    containerMemory = conf.getInt(MPIConfiguration.MPI_CONTAINER_MEMORY, 64);
+    amPriority = conf.getInt(MPIConfiguration.MPI_AM_PRIORITY, 0);
+    containerPriority = conf.getInt(MPIConfiguration.MPI_CONTAINER_PRIORITY, 0);
+    amQueue = conf.get(MPIConfiguration.MPI_QUEUE);
+    clientTimeout = conf.getLong(MPIConfiguration.MPI_TIMEOUT, 24 * 60 * 60 * 1000);
+  }
+
   /**
    * Parse command line options
    * @param args Parsed command line options
@@ -146,6 +154,8 @@ public class Client {
    * @throws ParseException
    */
   public boolean init(String[] args) throws ParseException {
+
+    reloadConfiguration();
 
     Options opts = new Options();
     opts.addOption("M", "master-memory", true, "Amount of memory in MB to be requested to run the application master");
@@ -155,34 +165,38 @@ public class Client {
     opts.addOption("P", "priority", true, "Application Priority. Default 0");
     opts.addOption("p", "container-priority", true, "Priority for the shell command containers");
     opts.addOption("q", "queue", true, "RM Queue in which this application is to be submitted");
-    opts.addOption("t", "timeout", true, "Wall time, Application timeout in milliseconds, default is 86400000ms, i.e. 24hours");
+    opts.addOption("t", "timeout", true, "Wall-time, Application timeout in milliseconds, default is 86400000ms, i.e. 24hours");
     opts.addOption("n", "num-containers", true, "No. of containers on which the mpi program needs to be executed");
     opts.addOption("d", "debug", false, "Dump out debug information");
     opts.addOption("h", "help", false, "Print usage");
+
     CommandLine cliParser = new GnuParser().parse(opts, args);
 
-    if (args.length == 0 || cliParser.hasOption("help")) {
-      printUsage(opts);
-      return false;
+    if (cliParser.hasOption("master-memory")) {
+      amMemory = Integer.parseInt(cliParser.getOptionValue("master-memory", "64"));
     }
-
-    if (cliParser.hasOption("debug")) {
-      debugFlag = true;
-    }
-
-    amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
-    amQueue = cliParser.getOptionValue("queue", "default");
-    amMemory = Integer.parseInt(cliParser.getOptionValue("master-memory", "64"));
-
     if (amMemory <= 0) {
       throw new IllegalArgumentException("Invalid memory specified for application master, exiting."
           + " Specified memory=" + amMemory);
     }
 
-    appMasterJar = JobConf.findContainingJar(ApplicationMaster.class);
-    LOG.info("Application Master's jar is " + appMasterJar);
+    if (cliParser.hasOption("container-memory")) {
+      containerMemory = Integer.parseInt(cliParser.getOptionValue("container-memory", "64"));
+    }
+    if (containerMemory <= 0) {
+      throw new IllegalArgumentException("Invalid memory specified for containers, exiting."
+          + "Specified memory=" + containerMemory);
+    }
 
-    // MPI executable program
+    if (cliParser.hasOption("priority")) {
+      amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
+    }
+
+    if (cliParser.hasOption("queue")) {
+      amQueue = cliParser.getOptionValue("queue", "default");
+    }
+
+    // MPI executable program is a must
     if (!cliParser.hasOption("mpi-application")) {
       throw new IllegalArgumentException("No mpi executable program specified, exiting.");
     }
@@ -193,20 +207,32 @@ public class Client {
       mpiOptions = cliParser.getOptionValue("mpi-options");
     }
 
-    containerPriority = Integer.parseInt(cliParser.getOptionValue("container-priority", "0"));
-
-    containerMemory = Integer.parseInt(cliParser.getOptionValue("container-memory", "64"));
+    if (cliParser.hasOption("container-priority")) {
+      containerPriority = Integer.parseInt(cliParser.getOptionValue("container-priority", "0"));
+    }
 
     numContainers = Integer.parseInt(cliParser.getOptionValue("num-containers", "1"));
     LOG.info("Container number is " + numContainers);
-
-    if (containerMemory < 0 || numContainers < 1) {
-      throw new IllegalArgumentException("Invalid no. of containers or container memory specified, exiting."
-          + " Specified containerMemory=" + containerMemory
+    if (numContainers < 1) {
+      throw new IllegalArgumentException("Invalid no. of containers specified, exiting."
           + ", numContainer=" + numContainers);
     }
 
-    clientTimeout = Integer.parseInt(cliParser.getOptionValue("timeout", "86400000"));
+    if (cliParser.hasOption("timeout")) {
+      clientTimeout = Integer.parseInt(cliParser.getOptionValue("timeout", "86400000"));
+    }
+
+    if (cliParser.hasOption("debug")) {
+      debugFlag = true;
+    }
+
+    if (args.length == 0 || cliParser.hasOption("help")) {
+      printUsage(opts);
+      return false;
+    }
+
+    appMasterJar = JobConf.findContainingJar(ApplicationMaster.class);
+    LOG.info("Application Master's jar is " + appMasterJar);
 
     return true;
   }
@@ -326,8 +352,8 @@ public class Client {
     // the classpath to "." for the application jar
     StringBuilder classPathEnv = new StringBuilder("${CLASSPATH}:./*");
     for (String c : conf.getStrings(
-        YarnConfiguration.YARN_APPLICATION_CLASSPATH,
-        YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
+        MPIConfiguration.YARN_APPLICATION_CLASSPATH,
+        MPIConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
       classPathEnv.append(':');
       classPathEnv.append(c.trim());
     }
@@ -488,11 +514,11 @@ public class Client {
    * @throws IOException
    */
   private void connectToASM() throws IOException {
-    YarnConfiguration yarnConf = new YarnConfiguration(conf);
+    MPIConfiguration yarnConf = new MPIConfiguration(conf);
     InetSocketAddress rmAddress = yarnConf.getSocketAddr(
-        YarnConfiguration.RM_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_PORT);
+        MPIConfiguration.RM_ADDRESS,
+        MPIConfiguration.DEFAULT_RM_ADDRESS,
+        MPIConfiguration.DEFAULT_RM_PORT);
     LOG.info("Connecting to ResourceManager at " + rmAddress);
     applicationsManager = ((ClientRMProtocol) rpc.getProxy(
         ClientRMProtocol.class, rmAddress, conf));
@@ -538,7 +564,8 @@ public class Client {
       // Put the file itself on classpath for tasks.
       envClassPath += thisClassLoader.getResource(generatedClasspathFile).getFile();
     } catch (IOException e) {
-      LOG.info("Could not find the necessary resource to generate class path for tests. Error=" + e.getMessage());
+      LOG.info("Could not find the necessary resource to generate class path for tests. Error="
+          + e.getMessage());
     }
 
     try {
