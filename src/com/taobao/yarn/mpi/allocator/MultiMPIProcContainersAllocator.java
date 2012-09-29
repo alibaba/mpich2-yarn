@@ -1,0 +1,111 @@
+package com.taobao.yarn.mpi.allocator;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.yarn.api.records.AMResponse;
+import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
+import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.api.records.ContainerState;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+
+/**
+ * The container allocates
+ */
+public class MultiMPIProcContainersAllocator implements ContainersAllocator {
+  private static final Log LOG = LogFactory.getLog(MultiMPIProcContainersAllocator.class);
+  private final AMRMProtocol resourceManager;
+  private final int requestPriority;
+  private final int containerMemory;
+  private final AtomicInteger rmRequestID = new AtomicInteger();
+  private final AtomicInteger numRequestedContainers = new AtomicInteger();
+  private final AtomicInteger numAllocatedContainers = new AtomicInteger();
+  private final AtomicInteger rmRequestid = new AtomicInteger();
+  // How many mpi processes can the job hold?
+  private final AtomicInteger numProcessCanRun = new AtomicInteger();
+  private final ApplicationAttemptId appAttemptID;
+  private final Map<Container, Integer> procNumForContainers = new HashMap<Container, Integer>();
+
+  public MultiMPIProcContainersAllocator(
+      AMRMProtocol resourceManager,
+      int reuqestPriority,
+      int containerMemory,
+      ApplicationAttemptId appAttemptId) {
+    this.resourceManager = resourceManager;
+    this.requestPriority = reuqestPriority;
+    this.containerMemory = containerMemory;
+    this.appAttemptID = appAttemptId;
+  }
+
+  @Override
+  public synchronized List<Container> allocateContainers(int numContainer)
+      throws YarnRemoteException {
+    List<Container> result = new ArrayList<Container>();
+    while (numContainer > numProcessCanRun.get()) {
+      LOG.info(String.format("Current requesting state: needed=%d, procVolum=%d, requested=%d, allocated=%d, requestId=%d",
+          numContainer, numRequestedContainers, numAllocatedContainers, rmRequestid));
+      float progress = (float) numProcessCanRun.get() / numContainer;
+      Utilities.sleep(1000);
+      int askCount = numContainer - numProcessCanRun.get();
+      numRequestedContainers.addAndGet(askCount);
+
+      List<ResourceRequest> resourceReq = new ArrayList<ResourceRequest>();
+      if (askCount > 0) {
+        ResourceRequest containerAsk = Utilities.setupContainerAskForRM(
+            askCount, requestPriority, containerMemory);
+        resourceReq.add(containerAsk);
+      }
+
+      // Send request to RM
+      LOG.info(String.format("Asking RM for %d containers", askCount));
+      AMResponse amResp = Utilities.sendContainerAskToRM(
+          rmRequestID,
+          appAttemptID,
+          resourceManager,
+          resourceReq,
+          new ArrayList<ContainerId>(),
+          progress);
+      // Retrieve list of allocated containers from the response
+      List<Container> allocatedContainers = amResp.getAllocatedContainers();
+      LOG.info(String.format("Got response from RM for container ask, allocatedCount=%d",
+          allocatedContainers.size()));
+      numAllocatedContainers.addAndGet(allocatedContainers.size());
+      numProcessCanRun.addAndGet(allocatedContainers.size());
+
+      // Allocation complete, we will reducenumContainer
+      if (numAllocatedContainers.get() >= numContainer) {
+        Map<String, Container> hostToContainer = new HashMap<String, Container>();
+        for (Container allocatedContainer : allocatedContainers) {
+          String host = allocatedContainer.getNodeId().getHost();
+          if (!hostToContainer.containsKey(host)) {
+            hostToContainer.put(host, allocatedContainer);
+            procNumForContainers.put(allocatedContainer, new Integer(1));
+          } else {
+            Container container = hostToContainer.get(host);
+            int procNum = procNumForContainers.get(container).intValue();
+            procNum++;
+            procNumForContainers.put(container, new Integer(procNum));
+            // TODO check if this works
+            container.getResource().setMemory(procNum * containerMemory);
+            allocatedContainer.setState(ContainerState.COMPLETE);
+          }
+        }
+      }  // end if
+    }  // end while
+    return result;
+  }
+
+  @Override
+  public Map<Container, Integer> getProcNumForContainers() {
+    return procNumForContainers;
+  }
+
+}

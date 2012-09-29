@@ -54,7 +54,7 @@ import org.apache.hadoop.yarn.util.Records;
 
 import com.taobao.yarn.mpi.MPIConstants;
 import com.taobao.yarn.mpi.allocator.ContainersAllocator;
-import com.taobao.yarn.mpi.allocator.DistinctContainersAllocator;
+import com.taobao.yarn.mpi.allocator.MultiMPIProcContainersAllocator;
 
 public class ApplicationMaster {
 
@@ -66,6 +66,7 @@ public class ApplicationMaster {
   // Handle to communicate with the Resource Manager
   private AMRMProtocol resourceManager;
   // Handle to talk to the Resource Manager/Applications Manager
+  @SuppressWarnings("unused")
   private final ClientRMProtocol applicationsManager;
   // Application Attempt Id ( combination of attemptId and fail count )
   private ApplicationAttemptId appAttemptID;
@@ -109,6 +110,8 @@ public class ApplicationMaster {
   private String mpiExecDir;
   // MPI program options
   private String mpiOptions = "";
+  private Map<Container, Integer> procNumForContainers;
+  private List<Container> allContainers;
 
   /**
    * @param args Command line args
@@ -325,9 +328,10 @@ public class ApplicationMaster {
     // Keep looping until all the containers are launched and shell script executed on them
     // ( regardless of success/failure).
 
-    ContainersAllocator allocator = new DistinctContainersAllocator(resourceManager,
-        applicationsManager, requestPriority, containerMemory);
-    List<Container> allContainers = allocator.allocateContainers(numTotalContainers);
+    ContainersAllocator allocator = new MultiMPIProcContainersAllocator(resourceManager,
+        requestPriority, containerMemory, appAttemptID);
+    allContainers = allocator.allocateContainers(numTotalContainers);
+    procNumForContainers = allocator.getProcNumForContainers();
     for (Container allocatedContainer : allContainers) {
       String host = allocatedContainer.getNodeId().getHost();
       hosts.add(host);
@@ -469,10 +473,12 @@ public class ApplicationMaster {
     LOG.info("Launching mpiexec from the Application Master...");
 
     StringBuilder commandBuilder = new StringBuilder("mpiexec -hosts ");
-    commandBuilder.append(hosts.size());
-    for (String host : hosts) {
+    commandBuilder.append(allContainers.size());
+    for (Container host : allContainers) {
       commandBuilder.append(" ");
-      commandBuilder.append(host);
+      commandBuilder.append(host.getNodeId().getHost());
+      commandBuilder.append(" ");
+      commandBuilder.append(procNumForContainers.get(host));
     }
     commandBuilder.append(" ");
     commandBuilder.append(mpiExecDir);

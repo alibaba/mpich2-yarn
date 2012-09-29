@@ -1,8 +1,10 @@
 package com.taobao.yarn.mpi.allocator;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -10,8 +12,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.AMRMProtocol;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
-import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesResponse;
 import org.apache.hadoop.yarn.api.records.AMResponse;
@@ -25,13 +25,11 @@ import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.util.Records;
 
-import com.taobao.yarn.mpi.server.ApplicationMaster;
-
 /**
  * Allocate containers on distinct nodes
  */
 public class DistinctContainersAllocator implements ContainersAllocator {
-  private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
+  private static final Log LOG = LogFactory.getLog(DistinctContainersAllocator.class);
   // Handle to communicate with the Resource Manager
   private final AMRMProtocol resourceManager;
   // Handle to talk to the Resource Manager/Applications Manager
@@ -50,23 +48,29 @@ public class DistinctContainersAllocator implements ContainersAllocator {
   // Incremental counter for rpc calls to the RM
   private final AtomicInteger rmRequestID = new AtomicInteger();
   // Application Attempt Id ( combination of attemptId and fail count )
-  private ApplicationAttemptId appAttemptID;
+  private final ApplicationAttemptId appAttemptID;
   // Hosts for running MPI process
   private final Set<String> hosts = new HashSet<String>();
   // All the nodes in the cluster
   private final List<String> nodes;
+  // Number for containers
+  private final Map<Container, Integer> procNumForContainers = new HashMap<Container, Integer>();
 
   /**
    * Constructor
    * @throws YarnRemoteException
    */
-  public DistinctContainersAllocator(AMRMProtocol resourceManager,
+  public DistinctContainersAllocator(
+      AMRMProtocol resourceManager,
       ClientRMProtocol applicationsManager,
-      int requestPriority, int containerMemory) throws YarnRemoteException {
+      int requestPriority,
+      int containerMemory,
+      ApplicationAttemptId appAttemptId) throws YarnRemoteException {
     this.resourceManager = resourceManager;
+    this.applicationsManager = applicationsManager;
     this.requestPriority = requestPriority;
     this.containerMemory = containerMemory;
-    this.applicationsManager = applicationsManager;
+    this.appAttemptID = appAttemptId;
     this.nodes = getClusterNodes();
   }
 
@@ -79,31 +83,34 @@ public class DistinctContainersAllocator implements ContainersAllocator {
       LOG.info(String.format("Current requesting state: needed=%d, requested=%d, allocated=%d, requestId=%d",
           numContainer, numRequestedContainers, numAllocatedContainers, rmRequestID));
       float progress = (float)numAllocatedContainers.get()/numContainer;
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        LOG.warn("Sleep interrupted " + e.getMessage());
-      }
+      Utilities.sleep(1000);
       int askCount = numContainer - numAllocatedContainers.get();
       numRequestedContainers.addAndGet(askCount);
 
       List<ResourceRequest> resourceReq = new ArrayList<ResourceRequest>();
       if (askCount > 0) {
-        ResourceRequest containerAsk = setupContainerAskForRM(askCount);
+        ResourceRequest containerAsk = Utilities.setupContainerAskForRM(
+            askCount, requestPriority, containerMemory);
         resourceReq.add(containerAsk);
       }
 
       // Send the request to RM
-      LOG.info("Asking RM for containers, askCount=" + askCount);
-      AMResponse amResp = sendContainerAskToRM(resourceReq, new ArrayList<ContainerId>(), progress);
+      LOG.info(String.format("Asking RM for %d containers", askCount));
+      AMResponse amResp = Utilities.sendContainerAskToRM(
+          rmRequestID,
+          appAttemptID,
+          resourceManager,
+          resourceReq,
+          new ArrayList<ContainerId>(),
+          progress);
       // Retrieve list of allocated containers from the response
       List<Container> allocatedContainers = amResp.getAllocatedContainers();
       LOG.info("Got response from RM for container ask, allocatedCount="
           + allocatedContainers.size());
 
-      boolean allocateSuccess = false;
+      boolean firstAllocationSuccess = false;
       for (Container allocatedContainer : allocatedContainers) {
-        allocateSuccess = true;
+        firstAllocationSuccess = true;
         String host = allocatedContainer.getNodeId().getHost();
         if (!hosts.contains(host)) {
           hosts.add(host);
@@ -116,10 +123,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
       }
 
       // Second phase allocation
-      if (allocateSuccess) {
-        // FIXME Consider the cluster load and container count more than nodes
-        // Consider if containers more than nodes, fail. Because in smpd, if host is specified,
-        // no processor numbers are allowed.
+      if (firstAllocationSuccess) {
         askCount = numContainer - numAllocatedContainers.get();
         List<ResourceRequest> requests = new ArrayList<ResourceRequest>(askCount);
         for (String node : nodes) {
@@ -133,40 +137,20 @@ public class DistinctContainersAllocator implements ContainersAllocator {
             break;
           }
         }
-        amResp = sendContainerAskToRM(requests, new ArrayList<ContainerId>(), progress);
+        amResp = Utilities.sendContainerAskToRM(
+            rmRequestID,
+            appAttemptID,
+            resourceManager,
+            requests,
+            new ArrayList<ContainerId>(),
+            progress);
+      }  // end if
+    }  // end while
 
-      }
+    for (Container container : result) {
+      procNumForContainers.put(container, new Integer(1));
     }
     return result;
-  }
-
-  /**
-   * Setup the request that will be sent to the RM for the container ask.
-   * @param numContainers Containers to ask for from RM
-   * @return the setup ResourceRequest to be sent to RM
-   */
-  private ResourceRequest setupContainerAskForRM(int numContainers) {
-    ResourceRequest request = Records.newRecord(ResourceRequest.class);
-    // setup requirements for hosts, whether a particular rack/host is needed
-    // Refer to apis under org.apache.hadoop.net for more details on how to get figure out
-    // rack/host mapping. using * as any host will do for the distributed shell app
-    request.setHostName("*");
-    // set no. of containers needed
-    request.setNumContainers(numContainers);
-
-    // set the priority for the request
-    Priority pri = Records.newRecord(Priority.class);
-    // TODO - what is the range for priority? how to decide?
-    pri.setPriority(requestPriority);
-    request.setPriority(pri);
-
-    // Set up resource type requirements
-    // For now, only memory is supported so we set memory requirements
-    Resource capability = Records.newRecord(Resource.class);
-    capability.setMemory(containerMemory);
-    request.setCapability(capability);
-
-    return request;
   }
 
   /**
@@ -191,39 +175,6 @@ public class DistinctContainersAllocator implements ContainersAllocator {
   }
 
   /**
-   * Ask RM to allocate given no. of containers to this Application Master
-   * @param requestedContainers Containers to ask for from RM
-   * @return Response from RM to AM with allocated containers
-   * @throws YarnRemoteException
-   */
-  private AMResponse sendContainerAskToRM(
-      List<ResourceRequest> requestedContainers,
-      List<ContainerId> releasedContainers,
-      float progress) throws YarnRemoteException {
-    AllocateRequest req = Records.newRecord(AllocateRequest.class);
-    req.setResponseId(rmRequestID.incrementAndGet());
-    req.setApplicationAttemptId(appAttemptID);
-    req.addAllAsks(requestedContainers);
-    req.addAllReleases(releasedContainers);
-    req.setProgress(progress);
-
-    LOG.info("Sending request to RM for containers"
-        + ", requestedSet=" + requestedContainers.size()
-        + ", releasedSet=" + releasedContainers.size()
-        + ", progress=" + req.getProgress());
-
-    for (ResourceRequest  rsrcReq : requestedContainers) {
-      LOG.info("Requested container ask: " + rsrcReq.toString());
-    }
-    for (ContainerId id : releasedContainers) {
-      LOG.info("Released container, id=" + id.getId());
-    }
-
-    AllocateResponse resp = resourceManager.allocate(req);
-    return resp.getAMResponse();
-  }
-
-  /**
    * Get all the nodes in the cluster, this method generate RPC
    * @return host names
    * @throws YarnRemoteException
@@ -237,5 +188,10 @@ public class DistinctContainersAllocator implements ContainersAllocator {
       result.add(nodeReport.getNodeId().getHost());
     }
     return result;
+  }
+
+  @Override
+  public Map<Container, Integer> getProcNumForContainers() {
+    return procNumForContainers;
   }
 }
