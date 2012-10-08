@@ -52,6 +52,7 @@ import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
+import com.taobao.yarn.mpi.MPIConfiguration;
 import com.taobao.yarn.mpi.MPIConstants;
 import com.taobao.yarn.mpi.allocator.ContainersAllocator;
 import com.taobao.yarn.mpi.allocator.MultiMPIProcContainersAllocator;
@@ -193,10 +194,7 @@ public class ApplicationMaster {
     Map<String, String> envs = System.getenv();
 
     appAttemptID = Records.newRecord(ApplicationAttemptId.class);
-    if (envs.containsKey(ApplicationConstants.AM_APP_ATTEMPT_ID_ENV)) {
-      appAttemptID = ConverterUtils.toApplicationAttemptId(envs
-          .get(ApplicationConstants.AM_APP_ATTEMPT_ID_ENV));
-    } else if (!envs.containsKey(ApplicationConstants.AM_CONTAINER_ID_ENV)) {
+    if (!envs.containsKey(ApplicationConstants.AM_CONTAINER_ID_ENV)) {
       // Only for test purpose
       if (cliParser.hasOption("app_attempt_id")) {
         String appIdStr = cliParser.getOptionValue("app_attempt_id", "");
@@ -664,7 +662,7 @@ public class ApplicationMaster {
       StringBuilder classPathEnv = new StringBuilder("${CLASSPATH}:./*");
       for (String c : conf.getStrings(
           YarnConfiguration.YARN_APPLICATION_CLASSPATH,
-          YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
+          MPIConfiguration.DEFAULT_MPI_APPLICATION_CLASSPATH)) {
         classPathEnv.append(':');
         classPathEnv.append(c.trim());
       }

@@ -22,6 +22,13 @@ public class MPIConfiguration extends YarnConfiguration {
 
   public static final String MPI_TIMEOUT = "yarn.mpi.timeout";
 
+  public static final String[] DEFAULT_MPI_APPLICATION_CLASSPATH = {
+    "$HADOOP_CONF_DIR", "$HADOOP_COMMON_HOME/share/hadoop/common/*",
+    "$HADOOP_COMMON_HOME/share/hadoop/common/lib/*",
+    "$HADOOP_HDFS_HOME/share/hadoop/hdfs/*",
+    "$HADOOP_HDFS_HOME/share/hadoop/hdfs/lib/*",
+    "$YARN_HOME/share/hadoop/yarn/*", "$YARN_HOME/share/hadoop/yarn/lib/*" };
+
   static {
     YarnConfiguration.addDefaultResource(MPI_DEFAULT_XML_FILE);
     YarnConfiguration.addDefaultResource(MPI_SITE_XML_FILE);

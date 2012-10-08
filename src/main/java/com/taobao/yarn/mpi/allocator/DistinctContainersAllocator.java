@@ -74,7 +74,6 @@ public class DistinctContainersAllocator implements ContainersAllocator {
     this.nodes = getClusterNodes();
   }
 
-  @Override
   public synchronized List<Container> allocateContainers(int numContainer) throws YarnRemoteException {
     List<Container> result = new ArrayList<Container>();
     List<ContainerId> released = new ArrayList<ContainerId>();
@@ -190,7 +189,6 @@ public class DistinctContainersAllocator implements ContainersAllocator {
     return result;
   }
 
-  @Override
   public Map<Container, Integer> getProcNumForContainers() {
     return procNumForContainers;
   }

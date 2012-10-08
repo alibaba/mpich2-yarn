@@ -9,7 +9,7 @@ public class TestStringEfficiency {
   public void testMessageEfficiency() {
     Runtime runtime = Runtime.getRuntime();
 
-    System.out.println("This test case will prove String.format() is memory friendly");
+    System.out.println("This test case will prove String.format() is memory friendly.");
 
     System.gc();
     System.gc();

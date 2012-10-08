@@ -353,7 +353,7 @@ public class Client {
     StringBuilder classPathEnv = new StringBuilder("${CLASSPATH}:./*");
     for (String c : conf.getStrings(
         MPIConfiguration.YARN_APPLICATION_CLASSPATH,
-        MPIConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
+        MPIConfiguration.DEFAULT_MPI_APPLICATION_CLASSPATH)) {
       classPathEnv.append(':');
       classPathEnv.append(c.trim());
     }
