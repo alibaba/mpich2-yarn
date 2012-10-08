@@ -45,6 +45,7 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
     this.appAttemptID = appAttemptId;
   }
 
+  @Override
   public synchronized List<Container> allocateContainers(int numContainer)
       throws YarnRemoteException {
     List<Container> result = new ArrayList<Container>();
@@ -102,6 +103,7 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
     return result;
   }
 
+  @Override
   public Map<Container, Integer> getProcNumForContainers() {
     return procNumForContainers;
   }
