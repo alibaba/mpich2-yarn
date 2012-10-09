@@ -21,10 +21,5 @@ public interface ContainersAllocator {
    */
   List<Container> allocateContainers(int numContainer) throws YarnRemoteException;
 
-  /**
-   * Get the process number for each container, make sure you call this method after
-   * you call the method allocateContainers
-   * @return Map from Container to Integer
-   */
-  Map<Container, Integer> getProcNumForContainers();
+  Map<String, Integer> getHostToProcNum();
 }

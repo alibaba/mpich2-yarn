@@ -111,7 +111,7 @@ public class ApplicationMaster {
   private String mpiExecDir;
   // MPI program options
   private String mpiOptions = "";
-  private Map<Container, Integer> procNumForContainers;
+  private Map<String, Integer> hostToProcNum;
   private List<Container> allContainers;
 
   /**
@@ -329,11 +329,11 @@ public class ApplicationMaster {
     ContainersAllocator allocator = new MultiMPIProcContainersAllocator(resourceManager,
         requestPriority, containerMemory, appAttemptID);
     allContainers = allocator.allocateContainers(numTotalContainers);
-    procNumForContainers = allocator.getProcNumForContainers();
+    hostToProcNum = allocator.getHostToProcNum();
     for (Container allocatedContainer : allContainers) {
       String host = allocatedContainer.getNodeId().getHost();
       hosts.add(host);
-      LOG.info("Launching command on a new container."
+      LOG.info("Launching command on a new container"
           + ", containerId=" + allocatedContainer.getId()
           + ", containerNode=" + allocatedContainer.getNodeId().getHost()
           + ":" + allocatedContainer.getNodeId().getPort()
@@ -350,7 +350,7 @@ public class ApplicationMaster {
       launchThread.start();
     }
 
-    // FIXME Bad Coding, wait all SMPD for staring
+    // FIXME Bad Coding, wait all SMPD for staring, we should send a request and check
     try {
       LOG.info("Wait 5s to start MPI program ...");
       Thread.sleep(5000);
@@ -470,13 +470,15 @@ public class ApplicationMaster {
   private void launchMpiExec() throws IOException {
     LOG.info("Launching mpiexec from the Application Master...");
 
-    StringBuilder commandBuilder = new StringBuilder("mpiexec -hosts ");
+    // FIXME hard code
+    StringBuilder commandBuilder = new StringBuilder("mpiexec -phrase 123456 -hosts ");
     commandBuilder.append(allContainers.size());
-    for (Container host : allContainers) {
+    for (Container container : allContainers) {
+      String host = container.getNodeId().getHost();
       commandBuilder.append(" ");
-      commandBuilder.append(host.getNodeId().getHost());
+      commandBuilder.append(host);
       commandBuilder.append(" ");
-      commandBuilder.append(procNumForContainers.get(host));
+      commandBuilder.append(hostToProcNum.get(host));
     }
     commandBuilder.append(" ");
     commandBuilder.append(mpiExecDir);
@@ -695,6 +697,7 @@ public class ApplicationMaster {
       StartContainerRequest startReq = Records.newRecord(StartContainerRequest.class);
       startReq.setContainerLaunchContext(ctx);
       try {
+        // TODO deal with start failure
         cm.startContainer(startReq);
       } catch (YarnRemoteException e) {
         LOG.info("Start container failed for :"

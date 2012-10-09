@@ -32,7 +32,8 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
   // How many mpi processes can the job hold?
   private final AtomicInteger numProcessCanRun = new AtomicInteger();
   private final ApplicationAttemptId appAttemptID;
-  private final Map<Container, Integer> procNumForContainers = new HashMap<Container, Integer>();
+  private final Map<String, Integer> hostToProcNum = new HashMap<String, Integer>();
+  private final Map<String, Container> hostToContainer = new HashMap<String, Container>();
 
   public MultiMPIProcContainersAllocator(
       AMRMProtocol resourceManager,
@@ -51,7 +52,7 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
     List<Container> result = new ArrayList<Container>();
     while (numContainer > numProcessCanRun.get()) {
       LOG.info(String.format("Current requesting state: needed=%d, procVolum=%d, requested=%d, allocated=%d, requestId=%d",
-          numContainer, numRequestedContainers, numAllocatedContainers, rmRequestid));
+          numContainer, numProcessCanRun.get(), numRequestedContainers.get(), numAllocatedContainers.get(), rmRequestid.get()));
       float progress = (float) numProcessCanRun.get() / numContainer;
       Utilities.sleep(1000);
       int askCount = numContainer - numProcessCanRun.get();
@@ -82,17 +83,20 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
 
       // Allocation complete, we will reducenumContainer
       if (numAllocatedContainers.get() >= numContainer) {
-        Map<String, Container> hostToContainer = new HashMap<String, Container>();
         for (Container allocatedContainer : allocatedContainers) {
+          LOG.info("AllocatedContainer: Id=" + allocatedContainer.getId()
+              + ", NodeId=" + allocatedContainer.getNodeId()
+              + ", Host=" + allocatedContainer.getNodeId().getHost());
           String host = allocatedContainer.getNodeId().getHost();
           if (!hostToContainer.containsKey(host)) {
             hostToContainer.put(host, allocatedContainer);
-            procNumForContainers.put(allocatedContainer, new Integer(1));
+            hostToProcNum.put(host, new Integer(1));
+            result.add(allocatedContainer);
           } else {
             Container container = hostToContainer.get(host);
-            int procNum = procNumForContainers.get(container).intValue();
+            int procNum = hostToProcNum.get(host).intValue();
             procNum++;
-            procNumForContainers.put(container, new Integer(procNum));
+            hostToProcNum.put(host, new Integer(procNum));
             // TODO check if this works
             container.getResource().setMemory(procNum * containerMemory);
             allocatedContainer.setState(ContainerState.COMPLETE);
@@ -104,8 +108,7 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
   }
 
   @Override
-  public Map<Container, Integer> getProcNumForContainers() {
-    return procNumForContainers;
+  public Map<String, Integer> getHostToProcNum() {
+    return hostToProcNum;
   }
-
 }

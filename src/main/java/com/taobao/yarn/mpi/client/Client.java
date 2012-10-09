@@ -1,6 +1,7 @@
 package com.taobao.yarn.mpi.client;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -171,6 +172,11 @@ public class Client {
     opts.addOption("h", "help", false, "Print usage");
 
     CommandLine cliParser = new GnuParser().parse(opts, args);
+    // empty commandline
+    if (cliParser.getOptions().length == 0) {
+      printUsage(opts);
+      return false;
+    }
 
     if (cliParser.hasOption("master-memory")) {
       amMemory = Integer.parseInt(cliParser.getOptionValue("master-memory", "64"));
@@ -201,7 +207,7 @@ public class Client {
       throw new IllegalArgumentException("No mpi executable program specified, exiting.");
     }
     mpiApplication = cliParser.getOptionValue("mpi-application");
-    appName += mpiApplication;
+    appName += (new File(mpiApplication)).getName();
 
     if (cliParser.hasOption("mpi-options")) {
       mpiOptions = cliParser.getOptionValue("mpi-options");

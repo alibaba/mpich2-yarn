@@ -28,6 +28,7 @@ import org.apache.hadoop.yarn.util.Records;
 /**
  * Allocate containers on distinct nodes
  */
+@Deprecated
 public class DistinctContainersAllocator implements ContainersAllocator {
   private static final Log LOG = LogFactory.getLog(DistinctContainersAllocator.class);
   // Handle to communicate with the Resource Manager
@@ -54,7 +55,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
   // All the nodes in the cluster
   private final List<String> nodes;
   // Number for containers
-  private final Map<Container, Integer> procNumForContainers = new HashMap<Container, Integer>();
+  private final Map<String, Integer> hostToProcNum = new HashMap<String, Integer>();
 
   /**
    * Constructor
@@ -81,7 +82,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
 
     while (numContainer > numAllocatedContainers.get()) {
       LOG.info(String.format("Current requesting state: needed=%d, requested=%d, allocated=%d, requestId=%d",
-          numContainer, numRequestedContainers, numAllocatedContainers, rmRequestID));
+          numContainer, numRequestedContainers.get(), numAllocatedContainers.get(), rmRequestID.get()));
       float progress = (float)numAllocatedContainers.get()/numContainer;
       Utilities.sleep(1000);
       int askCount = numContainer - numAllocatedContainers.get();
@@ -148,7 +149,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
     }  // end while
 
     for (Container container : result) {
-      procNumForContainers.put(container, new Integer(1));
+      hostToProcNum.put(container.getNodeId().getHost(), new Integer(1));
     }
     return result;
   }
@@ -191,7 +192,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
   }
 
   @Override
-  public Map<Container, Integer> getProcNumForContainers() {
-    return procNumForContainers;
+  public Map<String, Integer> getHostToProcNum() {
+    return hostToProcNum;
   }
 }
