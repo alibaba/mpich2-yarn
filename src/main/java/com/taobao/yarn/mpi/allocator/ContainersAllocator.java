@@ -22,4 +22,6 @@ public interface ContainersAllocator {
   List<Container> allocateContainers(int numContainer) throws YarnRemoteException;
 
   Map<String, Integer> getHostToProcNum();
+
+  int getCurrentRequestId();
 }

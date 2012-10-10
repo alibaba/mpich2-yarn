@@ -1,4 +1,4 @@
-package com.taobao.yarn.mpi.allocator;
+package com.taobao.yarn.mpi.server;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;

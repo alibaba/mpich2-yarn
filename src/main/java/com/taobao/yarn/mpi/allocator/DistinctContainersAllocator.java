@@ -25,6 +25,8 @@ import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.util.Records;
 
+import com.taobao.yarn.mpi.server.Utilities;
+
 /**
  * Allocate containers on distinct nodes
  */
@@ -194,5 +196,10 @@ public class DistinctContainersAllocator implements ContainersAllocator {
   @Override
   public Map<String, Integer> getHostToProcNum() {
     return hostToProcNum;
+  }
+
+  @Override
+  public int getCurrentRequestId() {
+    return rmRequestID.get();
   }
 }

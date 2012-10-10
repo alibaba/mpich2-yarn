@@ -17,6 +17,8 @@ import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 
+import com.taobao.yarn.mpi.server.Utilities;
+
 /**
  * The container allocates
  */
@@ -28,7 +30,6 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
   private final AtomicInteger rmRequestID = new AtomicInteger();
   private final AtomicInteger numRequestedContainers = new AtomicInteger();
   private final AtomicInteger numAllocatedContainers = new AtomicInteger();
-  private final AtomicInteger rmRequestid = new AtomicInteger();
   // How many mpi processes can the job hold?
   private final AtomicInteger numProcessCanRun = new AtomicInteger();
   private final ApplicationAttemptId appAttemptID;
@@ -52,7 +53,7 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
     List<Container> result = new ArrayList<Container>();
     while (numContainer > numProcessCanRun.get()) {
       LOG.info(String.format("Current requesting state: needed=%d, procVolum=%d, requested=%d, allocated=%d, requestId=%d",
-          numContainer, numProcessCanRun.get(), numRequestedContainers.get(), numAllocatedContainers.get(), rmRequestid.get()));
+          numContainer, numProcessCanRun.get(), numRequestedContainers.get(), numAllocatedContainers.get(), rmRequestID.get()));
       float progress = (float) numProcessCanRun.get() / numContainer;
       Utilities.sleep(1000);
       int askCount = numContainer - numProcessCanRun.get();
@@ -110,5 +111,10 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
   @Override
   public Map<String, Integer> getHostToProcNum() {
     return hostToProcNum;
+  }
+
+  @Override
+  public int getCurrentRequestId() {
+    return rmRequestID.get();
   }
 }
