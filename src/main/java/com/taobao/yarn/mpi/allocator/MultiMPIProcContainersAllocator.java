@@ -55,6 +55,7 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
       LOG.info(String.format("Current requesting state: needed=%d, procVolum=%d, requested=%d, allocated=%d, requestId=%d",
           numContainer, numProcessCanRun.get(), numRequestedContainers.get(), numAllocatedContainers.get(), rmRequestID.get()));
       float progress = (float) numProcessCanRun.get() / numContainer;
+      // FIXME Hard coding sleep time
       Utilities.sleep(1000);
       int askCount = numContainer - numProcessCanRun.get();
       numRequestedContainers.addAndGet(askCount);

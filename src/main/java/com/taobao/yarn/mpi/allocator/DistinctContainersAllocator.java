@@ -86,6 +86,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
       LOG.info(String.format("Current requesting state: needed=%d, requested=%d, allocated=%d, requestId=%d",
           numContainer, numRequestedContainers.get(), numAllocatedContainers.get(), rmRequestID.get()));
       float progress = (float)numAllocatedContainers.get()/numContainer;
+      // FIXME Hard coding sleep time
       Utilities.sleep(1000);
       int askCount = numContainer - numAllocatedContainers.get();
       numRequestedContainers.addAndGet(askCount);

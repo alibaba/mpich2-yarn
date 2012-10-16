@@ -1,6 +1,7 @@
 package com.taobao.yarn.mpi.server;
 
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
@@ -20,6 +21,8 @@ import org.apache.hadoop.yarn.util.Records;
 public final class Utilities {
   private static Log LOG = LogFactory.getLog(Utilities.class);
 
+  private static Random rnd = new Random();
+
   /**
    * This is a static class
    */
@@ -33,8 +36,7 @@ public final class Utilities {
     try {
       Thread.sleep(millis);
     } catch (InterruptedException e) {
-      LOG.warn("Thread Interrupted ...");
-      LOG.warn(e.getMessage());
+      LOG.warn("Thread Interrupted ...", e);
     }
   }
 
@@ -104,5 +106,26 @@ public final class Utilities {
 
     AllocateResponse resp = resourceManager.allocate(req);
     return resp.getAMResponse();
+  }
+
+  /**
+   * Get the random phrase of 0-9, A-Z, a-z
+   * @param length the length of the phrase
+   * @return the phrase
+   */
+  public static String getRandomPhrase(int length) {
+    StringBuilder sb = new StringBuilder(length);
+    for (int i = 0; i < length; i++) {
+      char c = (char) rnd.nextInt(62);
+      if (c < (char) 10) {
+        c += '0';  // '0' to ''9'
+      } else if (c < (char) 36) {
+        c += 55;  // 'A'(65) to 'Z'(90)
+      } else {
+        c += 61;  // 'a'(97) to 'z'(122)
+      }
+      sb.append(c);
+    }
+    return sb.toString();
   }
 }

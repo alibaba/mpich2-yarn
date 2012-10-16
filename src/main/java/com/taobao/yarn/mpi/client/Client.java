@@ -31,6 +31,7 @@ import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationRequest;
+import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
@@ -50,6 +51,7 @@ import org.apache.hadoop.yarn.util.Records;
 import com.taobao.yarn.mpi.MPIConfiguration;
 import com.taobao.yarn.mpi.MPIConstants;
 import com.taobao.yarn.mpi.server.ApplicationMaster;
+import com.taobao.yarn.mpi.server.Utilities;
 
 /**
  * Client for MPI application submission to YARN.
@@ -269,7 +271,7 @@ public class Client {
     LOG.info("Min mem capabililty of resources in this cluster " + minMem);
     LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
 
-    // A resource ask has to be atleast the minimum of the capability of the cluster,
+    // A resource ask has to be at least the minimum of the capability of the cluster,
     // the value has to be a multiple of the min value and cannot exceed the max.
     // If it is not an exact multiple of min, the RM will allocate to the nearest multiple of min
     if (amMemory < minMem) {
@@ -422,11 +424,11 @@ public class Client {
     appRequest.setApplicationSubmissionContext(appContext);
 
     // Submit the application to the applications manager
-    // SubmitApplicationResponse submitResp = applicationsManager.submitApplication(appRequest);
     // Ignore the response as either a valid response object is returned on success
     // or an exception thrown to denote some form of a failure
     LOG.info("Submitting application to ASM");
-    applicationsManager.submitApplication(appRequest);
+    SubmitApplicationResponse submitResp = applicationsManager.submitApplication(appRequest);
+    LOG.info("Submisstion result: " + submitResp.toString());
 
     // TODO Try submitting the same request again. app submission failure?
 
@@ -444,12 +446,8 @@ public class Client {
   private boolean monitorApplication(ApplicationId appId) throws YarnRemoteException {
 
     while (true) {
-      // Check app status every 1 second.
-      try {
-        Thread.sleep(1000);  // FIXME hard code
-      } catch (InterruptedException e) {
-        LOG.debug("Thread sleep in monitoring loop interrupted");
-      }
+      // FIXME hard coding sleep time
+      Utilities.sleep(1000);
 
       // Get application report for the appId we are interested in
       GetApplicationReportRequest reportRequest = Records.newRecord(GetApplicationReportRequest.class);
@@ -476,8 +474,7 @@ public class Client {
         if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
           LOG.info("Application has completed successfully. Breaking monitoring loop");
           return true;
-        }
-        else {
+        } else {
           LOG.info("Application did finished unsuccessfully."
               + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString()
               + ". Breaking monitoring loop");

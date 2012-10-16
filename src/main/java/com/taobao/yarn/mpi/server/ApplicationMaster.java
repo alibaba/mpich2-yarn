@@ -111,6 +111,8 @@ public class ApplicationMaster {
   private String mpiOptions = "";
   private Map<String, Integer> hostToProcNum;
   private List<Container> allContainers;
+  private String phrase = "";
+  private int port = 5000;
 
   /**
    * @param args Command line args
@@ -144,8 +146,7 @@ public class ApplicationMaster {
     LOG.info("Dump debug output");
     Map<String, String> envs = System.getenv();
     for (Map.Entry<String, String> env : envs.entrySet()) {
-      LOG.info("System env: key=" + env.getKey() + ", val=" + env.getValue());
-      System.out.println("System env: key=" + env.getKey() + ", val=" + env.getValue());
+      LOG.info("System env: " + env.getKey() + "=" + env.getValue());
     }
   }
 
@@ -263,6 +264,10 @@ public class ApplicationMaster {
     LOG.info("Number of total containers is " + numTotalContainers);
 
     requestPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
+
+    phrase = Utilities.getRandomPhrase(16);
+    // TODO Port range, max is 65535, min is 5000, should be configurable
+    port = appAttemptID.getApplicationId().getId() % 60536 + 5000;
     return true;
   }
 
@@ -462,8 +467,11 @@ public class ApplicationMaster {
   private void launchMpiExec() throws IOException {
     LOG.info("Launching mpiexec from the Application Master...");
 
-    // FIXME hard code
-    StringBuilder commandBuilder = new StringBuilder("mpiexec -phrase 123456 -hosts ");
+    StringBuilder commandBuilder = new StringBuilder("mpiexec -phrase ");
+    commandBuilder.append(phrase);
+    commandBuilder.append(" -port ");
+    commandBuilder.append(port);
+    commandBuilder.append(" -hosts ");
     commandBuilder.append(allContainers.size());
     for (Container container : allContainers) {
       String host = container.getNodeId().getHost();
@@ -517,8 +525,7 @@ public class ApplicationMaster {
           Runtime rt = Runtime.getRuntime();
           for (String host : hosts) {
             try {
-              // FIXME hard coding password
-              String command = "smpd -shutdown " + host + " -phrase 123456 -debug";
+              String command = "smpd -shutdown " + host + " -phrase " + phrase + " -port " + port + " -debug";
               LOG.info("Executing the command: " + command);
               Process process = rt.exec(command);
               Scanner scanner = new Scanner(process.getInputStream());
@@ -551,7 +558,7 @@ public class ApplicationMaster {
     int i = 0;
     for (Entry<String, String> env : envs.entrySet()) {
       if (env.getKey().equals("HOME")) {
-        envStrs[i] = env.getKey() + "=/home/hadoop";  // FIXME hard code
+        envStrs[i] = env.getKey() + "=/home/hadoop";  // FIXME hard coding path
       } else {
         envStrs[i] = env.getKey() + "=" + env.getValue();
       }
@@ -670,6 +677,8 @@ public class ApplicationMaster {
       vargs.add("${JAVA_HOME}" + "/bin/java");
       vargs.add("-Xmx" + containerMemory + "m");
       vargs.add("com.taobao.yarn.mpi.server.Container");
+      vargs.add("-p " + port);
+      vargs.add("-f " + phrase);
       // Add log redirect params
       // FIXME Redirect the output to HDFS
       vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
