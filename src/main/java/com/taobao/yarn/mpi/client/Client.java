@@ -11,6 +11,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -87,10 +89,19 @@ public class Client {
   private long clientTimeout = 24 * 60 * 60 * 1000;  // 86400000 ms, 24 hours
   // Location of the MPI application
   private String mpiApplication = "";
+  // Is the MPI application running
+  private transient boolean isRunnig = false;
   // MPI Options
   private String mpiOptions = "";
   // Debug flag
   boolean debugFlag = false;
+
+  private enum TaskType {
+    RUN, KILL
+  }
+  private TaskType taskType = TaskType.RUN;
+  private String appIdToKill;
+  private ApplicationId appId;
 
   /**
    * @param args Command line arguments
@@ -103,7 +114,11 @@ public class Client {
       if (!client.init(args)) {
         System.exit(0);
       }
-      result = client.run();
+      if (client.taskType == TaskType.RUN) {
+        result = client.run();
+      } else if (client.taskType == TaskType.KILL) {
+        result = client.kill();
+      }
     } catch (Throwable t) {
       LOG.fatal("Error running CLient", t);
       System.exit(1);
@@ -170,6 +185,7 @@ public class Client {
     opts.addOption("q", "queue", true, "RM Queue in which this application is to be submitted");
     opts.addOption("t", "timeout", true, "Wall-time, Application timeout in milliseconds, default is 86400000ms, i.e. 24hours");
     opts.addOption("n", "num-containers", true, "No. of containers on which the mpi program needs to be executed");
+    opts.addOption("k", "kill", true, "Running MPI Application id");
     opts.addOption("d", "debug", false, "Dump out debug information");
     opts.addOption("h", "help", false, "Print usage");
 
@@ -178,6 +194,12 @@ public class Client {
     if (cliParser.getOptions().length == 0) {
       printUsage(opts);
       return false;
+    }
+
+    if (cliParser.hasOption("kill")) {
+      taskType = TaskType.KILL;
+      appIdToKill = cliParser.getOptionValue("kill");
+      return true;
     }
 
     if (cliParser.hasOption("master-memory")) {
@@ -258,7 +280,7 @@ public class Client {
 
     // Get a new application id
     GetNewApplicationResponse newApp = getApplication();
-    ApplicationId appId = newApp.getApplicationId();
+    appId = newApp.getApplicationId();
     LOG.info("Got Applicatioin: " + appId.toString());
 
     // TODO get min/max resource capabilities from RM and change memory ask if needed
@@ -427,13 +449,14 @@ public class Client {
     // Ignore the response as either a valid response object is returned on success
     // or an exception thrown to denote some form of a failure
     LOG.info("Submitting application to ASM");
+    isRunnig = true;
     SubmitApplicationResponse submitResp = applicationsManager.submitApplication(appRequest);
     LOG.info("Submisstion result: " + submitResp.toString());
 
     // TODO Try submitting the same request again. app submission failure?
 
     // Monitor the application
-    return monitorApplication(appId);
+    return monitorApplication();
   }
 
   /**
@@ -443,7 +466,20 @@ public class Client {
    * @return true if application completed successfully
    * @throws YarnRemoteException
    */
-  private boolean monitorApplication(ApplicationId appId) throws YarnRemoteException {
+  private boolean monitorApplication() throws YarnRemoteException {
+
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+      @Override
+      public void run() {
+        if (isRunnig) {
+          try {
+            killApplication(appId);
+          } catch (YarnRemoteException e) {
+            LOG.error("Error killing application: ", e);
+          }
+        }
+      }
+    });
 
     while (true) {
       // FIXME hard coding sleep time
@@ -471,6 +507,7 @@ public class Client {
       YarnApplicationState state = report.getYarnApplicationState();
       FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
       if (YarnApplicationState.FINISHED == state) {
+        isRunnig = false;
         if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
           LOG.info("Application has completed successfully. Breaking monitoring loop");
           return true;
@@ -480,9 +517,9 @@ public class Client {
               + ". Breaking monitoring loop");
           return false;
         }
-      }
-      else if (YarnApplicationState.KILLED == state
+      } else if (YarnApplicationState.KILLED == state
           || YarnApplicationState.FAILED == state) {
+        isRunnig = false;
         LOG.info("Application did not finish."
             + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString()
             + ". Breaking monitoring loop");
@@ -492,6 +529,7 @@ public class Client {
       if (System.currentTimeMillis() > (clientStartTime + clientTimeout)) {
         LOG.info("Reached client specified timeout for application. Killing application");
         killApplication(appId);
+        isRunnig = false;
         return false;
       }
     }  // end while
@@ -507,6 +545,7 @@ public class Client {
     // TODO clarify whether multiple jobs with the same app id can be submitted
     // and be running at the same time. If yes, can we kill a particular attempt only?
     request.setApplicationId(appId);
+    LOG.info("Killing appliation with id: " + appId.toString());
     // Response can be ignored as it is non-null on success or throws an exception in case of failures
     applicationsManager.forceKillApplication(request);
   }
@@ -582,5 +621,37 @@ public class Client {
       LOG.info("Failed to close class path file stream or reader. Error=" + e.getMessage());
     }
     return envClassPath;
+  }
+
+  /**
+   * Kill the command-line specified appId
+   * @return
+   */
+  public boolean kill() {
+    try {
+      connectToASM();
+      ApplicationId appId = parseAppId(appIdToKill);
+      if (null == appId)
+        return false;
+      killApplication(appId);
+    } catch (YarnRemoteException e) {
+      LOG.error("Killing " + appIdToKill + " failed", e);
+      return false;
+    } catch (IOException e) {
+      LOG.error("Connecting RM to kill " + appIdToKill + " failed", e);
+      return false;
+    }
+    return true;
+  }
+
+  private static ApplicationId parseAppId(String appIdStr) {
+    Pattern p = Pattern.compile("application_(\\d+)_(\\d+)");
+    Matcher m = p.matcher(appIdStr);
+    if (!m.matches())
+      return null;
+    ApplicationId appId = Records.newRecord(ApplicationId.class);
+    appId.setClusterTimestamp(Long.parseLong(m.group(1)));
+    appId.setId(Integer.parseInt(m.group(2)));
+    return appId;
   }
 }
