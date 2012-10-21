@@ -307,6 +307,11 @@ public class Client {
           + ", max=" + maxMem);
       amMemory = maxMem;
     }
+    if (containerMemory * numContainers > maxMem) {
+      LOG.error("Container memories specified above the max threhold "
+          +"(yarn.scheduler.maximum-allocation-mb) of the cluster");
+      return false;
+    }
 
     // Create launch context for app master
     LOG.info("Setting up application submission context for ASM");
