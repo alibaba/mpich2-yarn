@@ -1,0 +1,67 @@
+# This Makefile.sm generated automatically by f77tof90
+# from test/mpi/f77/io/Makefile.sm.  DO NOT EDIT
+FCINCLUDES = -I. 
+DEPADD = @MPILIBLOC@ ../util/mtestf90.o
+smvar_do_sharedlibs = 0
+FCHEADERS = iodisp.h iooffset.h
+
+iwriteatf90_LDADD       = ../util/mtestf90.o
+iwritef90_LDADD         = ../util/mtestf90.o
+iwriteshf90_LDADD       = ../util/mtestf90.o
+writef90_LDADD          = ../util/mtestf90.o
+writeatf90_LDADD        = ../util/mtestf90.o
+writeallf90_LDADD       = ../util/mtestf90.o
+writeatallf90_LDADD     = ../util/mtestf90.o
+writeallbef90_LDADD     = ../util/mtestf90.o
+writeordf90_LDADD       = ../util/mtestf90.o
+writeordbef90_LDADD     = ../util/mtestf90.o
+writeshf90_LDADD        = ../util/mtestf90.o
+writeatallbef90_LDADD   = ../util/mtestf90.o
+
+fileerrf90_SOURCES      = fileerrf90.f90
+fileerrf90_LDADD        = ../util/mtestf90.o
+fileinfof90_SOURCES     = fileinfof90.f90
+fileinfof90_LDADD       = ../util/mtestf90.o
+shpositionf90_SOURCES   = shpositionf90.f90
+shpositionf90_LDADD     = ../util/mtestf90.o
+
+atomicityf90_SOURCES    = atomicityf90.f90
+miscfilef90_SOURCES     = miscfilef90.f90
+miscfilef90_LDADD     = ../util/mtestf90.o
+
+setviewcurf90_SOURCES   = setviewcurf90.f90
+setviewcurf90_LDADD     = ../util/mtestf90.o
+
+c2f90multio_SOURCES     = c2f90multio.c
+c2f2ciof90_SOURCES = c2f2ciof90.f90 c2f902cio.c
+c2f2ciof90_LDADD        = ../util/mtestf90.o 
+
+# These IO tests are build from a template and a set of definitions.
+iwriteatf90.f90 writef90.f90 writeatf90.f90 writeatallf90.f90 writeallf90.f90 writeallbef90.f90 \
+writeordf90.f90 writeordbef90.f90 writeshf90.f90 writeatallbef90.f90 \
+iwritef90.f90 iwriteshf90.f90 : ioharness.tlt ioharness.defn ../../maint/testmerge
+	../../maint/testmerge -defn=$(top_srcdir)/maint/common.defn \
+		$(srcdir)/ioharness.defn $(srcdir)/ioharness.tlt
+
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=$(bindir)/mpiexec \
+		   	-xmlfile=summary.xml
+
+../util/mtestf90.o: 
+	(cd ../util && $(MAKE) mtestf90.o)
+
+clean-local:
+	rm -f .iotest.txt.*
+$(srcdir)/ioharness.defn: $(srcdir)/../../f77/io/ioharness.defn
+	sed -e 's/filename="\(.*\)f.f\"/filename="\1f90.f90"/g' \
+	-e 's/include.*iooffset.*/integer (kind=MPI_OFFSET_KIND)offset/g' \
+	$(srcdir)/../../f77/io/ioharness.defn > $(srcdir)/ioharness.defn
+$(srcdir)/ioharness.tlt: $(srcdir)/../../f77/io/ioharness.tlt
+	sed -e 's/include.*mpif.*/use mpi/g' \
+	    -e 's/fheader/f90header/g' \
+	    -e 's/^C/!/g' \
+	    -e '/implicit *none/d' \
+	$(srcdir)/../../f77/io/ioharness.tlt > $(srcdir)/ioharness.tlt
+c2f902cio.c: $(srcdir)/../../f90/io/c2f902cio.c
+	cp $(srcdir)/../../f90/io/c2f902cio.c c2f902cio.c

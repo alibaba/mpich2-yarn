@@ -1,0 +1,29 @@
+# This Makefile.sm generated automatically by f77tof90
+# from test/mpi/f77/datatype/Makefile.sm.  DO NOT EDIT
+FCINCLUDES = -I. 
+LDADD = ../util/mtestf90.o 
+DEPADD = @MPILIBLOC@ ../util/mtestf90.o
+smvar_do_sharedlibs = 0
+
+FCHEADERS = typeaints.h
+
+typenamef90_SOURCES  = typenamef90.f90
+typesnamef90_SOURCES = typesnamef90.f90
+typecntsf90_SOURCES  = typecntsf90.f90
+typesubf90_SOURCES   = typesubf90.f90
+typem2f90_SOURCES    = typem2f90.f90
+gaddressf90_SOURCES  = gaddressf90.f90
+packef90_SOURCES     = packef90.f90
+allctypesf90_SOURCES  = allctypesf90.f90
+
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=$(bindir)/mpiexec \
+		   	-xmlfile=summary.xml
+../util/mtestf90.o: 
+	(cd ../util && $(MAKE) mtestf90.o)
+structf_SOURCES    = structf.f90
+indtype_SOURCES    = indtype.f90
+createf90_SOURCES  = createf90.f90
+sizeof_SOURCES     = sizeof.f90
+

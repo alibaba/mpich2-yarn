@@ -1,0 +1,162 @@
+/* mpe_wrappers_conf.h.in.  Generated from configure.in by autoheader.  */
+
+/* Define to one of `_getb67', `GETB67', `getb67' for Cray-2 and Cray-YMP
+   systems. This function is required for `alloca.c' support on those systems.
+   */
+#undef CRAY_STACKSEG_END
+
+/* Define to 1 if using `alloca.c'. */
+#undef C_ALLOCA
+
+/* Define to 1 if you have `alloca', as a function or macro. */
+#undef HAVE_ALLOCA
+
+/* Define to 1 if you have <alloca.h> and it should be used (not on Ultrix).
+   */
+#undef HAVE_ALLOCA_H
+
+/* Define if CRAY's FCD logical is found */
+#undef HAVE_CRAY_FCD_LOGICAL
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define if MPI_Comm_f2c and c2f available */
+#undef HAVE_MPI_COMM_F2C
+
+/* Define if MPI_Errhandler_f2c and c2f available */
+#undef HAVE_MPI_ERRHANDLER_F2C
+
+/* Define if MPI_F_STATUSES_IGNORE available */
+#undef HAVE_MPI_F_STATUSES_IGNORE
+
+/* Define if MPI_F_STATUS_IGNORE available */
+#undef HAVE_MPI_F_STATUS_IGNORE
+
+/* Define if MPI_Group_f2c and c2f available */
+#undef HAVE_MPI_GROUP_F2C
+
+/* Define if MPI_Init_thread available */
+#undef HAVE_MPI_INIT_THREAD
+
+/* Define if MPI-IO available */
+#undef HAVE_MPI_IO
+
+/* Define if MPI Naming Service is available */
+#undef HAVE_MPI_NAMING
+
+/* Define if MPI_Op_f2c and c2f available */
+#undef HAVE_MPI_OP_F2C
+
+/* Define if MPI_Request_f2c and c2f available */
+#undef HAVE_MPI_REQUEST_F2C
+
+/* Define if MPI-RMA is available */
+#undef HAVE_MPI_RMA
+
+/* Define if MPI_Win_lock/unlock are available */
+#undef HAVE_MPI_RMA_LOCK
+
+/* Define if MPI_Win_test is available */
+#undef HAVE_MPI_RMA_TEST
+
+/* Define if MPI-SPAWN is available */
+#undef HAVE_MPI_SPAWN
+
+/* Define if MPI_STATUSES_IGNORE available */
+#undef HAVE_MPI_STATUSES_IGNORE
+
+/* Define if MPI_PROCNULL not handled in MPI_Status */
+#undef HAVE_MPI_STATUS_BROKEN_ON_PROC_NULL
+
+/* Define if MPI_Status_f2c and c2f available */
+#undef HAVE_MPI_STATUS_F2C
+
+/* Define if MPI_STATUS_IGNORE available */
+#undef HAVE_MPI_STATUS_IGNORE
+
+/* Define if MPI_Type_F2c and c2f available */
+#undef HAVE_MPI_TYPE_F2C
+
+/* Define if no MPIO_Request */
+#undef HAVE_NO_MPIO_REQUEST
+
+/* Define if the compiler supports simple prototyptes */
+#undef HAVE_PROTOTYPES
+
+/* Define if stdarg.h is available */
+#undef HAVE_STDARG_H
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdio.h> header file. */
+#undef HAVE_STDIO_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define if safe PMPI calls are made */
+#undef MAKE_SAFE_PMPI_CALL
+
+/* Define as the value for Fortran logical false */
+#undef MPE_F77_FALSE_VALUE
+
+/* Define as the value for Fortran logical true */
+#undef MPE_F77_TRUE_VALUE
+
+/* Define MPI_Fint as int */
+#undef MPI_Fint
+
+/* Define as the size of MPI_STATUS_SIZE */
+#undef MPI_STATUS_SIZE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* If using the C implementation of alloca, define if you know the
+   direction of stack growth for your system; otherwise it will be
+   automatically deduced at runtime.
+	STACK_DIRECTION > 0 => grows toward higher addresses
+	STACK_DIRECTION < 0 => grows toward lower addresses
+	STACK_DIRECTION = 0 => direction of growth unknown */
+#undef STACK_DIRECTION
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Define is stdarg can be used */
+#undef USE_STDARG
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const

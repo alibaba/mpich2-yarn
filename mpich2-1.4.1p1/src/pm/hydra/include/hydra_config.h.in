@@ -1,0 +1,349 @@
+/* include/hydra_config.h.in.  Generated from configure.in by autoheader.  */
+
+/* Define if FTB is enabled */
+#undef ENABLE_FTB
+
+/* Define if profiling enabled */
+#undef ENABLE_PROFILING
+
+/* Define if warnings are enabled */
+#undef ENABLE_WARNINGS
+
+/* Define to 1 if you have the `alarm' function. */
+#undef HAVE_ALARM
+
+/* Define to 1 if you have the `alloca' function. */
+#undef HAVE_ALLOCA
+
+/* Define to 1 if you have the <arpa/inet.h> header file. */
+#undef HAVE_ARPA_INET_H
+
+/* Define if blcr is available */
+#undef HAVE_BLCR
+
+/* Define if external bss is enabled */
+#undef HAVE_BSS_EXTERNAL
+
+/* Define if persist bss is enabled */
+#undef HAVE_BSS_PERSIST
+
+/* define if the compiler defines __FUNC__ */
+#undef HAVE_CAP__FUNC__
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* Define to 1 if you have the <errno.h> header file. */
+#undef HAVE_ERRNO_H
+
+/* Define if error checking is enabled */
+#undef HAVE_ERROR_CHECKING
+
+/* Define if environ extern is available */
+#undef HAVE_EXTERN_ENVIRON
+
+/* Define to 1 if you have the `fcntl' function. */
+#undef HAVE_FCNTL
+
+/* Define to 1 if you have the <fcntl.h> header file. */
+#undef HAVE_FCNTL_H
+
+/* Define if GNU __attribute__ is supported */
+#undef HAVE_GCC_ATTRIBUTE
+
+/* Define to 1 if you have the `gethostname' function. */
+#undef HAVE_GETHOSTNAME
+
+/* Define to 1 if you have the `getifaddrs' function. */
+#undef HAVE_GETIFADDRS
+
+/* Define to 1 if you have the `gettimeofday' function. */
+#undef HAVE_GETTIMEOFDAY
+
+/* Define if hwloc is available */
+#undef HAVE_HWLOC
+
+/* Define to 1 if you have the <hwloc.h> header file. */
+#undef HAVE_HWLOC_H
+
+/* Define to 1 if you have the <ifaddrs.h> header file. */
+#undef HAVE_IFADDRS_H
+
+/* Define to 1 if you have the `inet_ntop' function. */
+#undef HAVE_INET_NTOP
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the `isatty' function. */
+#undef HAVE_ISATTY
+
+/* Define to 1 if you have the `cr' library (-lcr). */
+#undef HAVE_LIBCR
+
+/* Define to 1 if you have the `ftb' library (-lftb). */
+#undef HAVE_LIBFTB
+
+/* Define to 1 if you have the `hwloc' library (-lhwloc). */
+#undef HAVE_LIBHWLOC
+
+/* Define to 1 if you have the `plpa' library (-lplpa). */
+#undef HAVE_LIBPLPA
+
+/* Define to 1 if you have the `torque' library (-ltorque). */
+#undef HAVE_LIBTORQUE
+
+/* Define if C99-style variable argument list macro functionality */
+#undef HAVE_MACRO_VA_ARGS
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <netdb.h> header file. */
+#undef HAVE_NETDB_H
+
+/* Define to 1 if you have the <netinet/in.h> header file. */
+#undef HAVE_NETINET_IN_H
+
+/* Define to 1 if you have the <netinet/tcp.h> header file. */
+#undef HAVE_NETINET_TCP_H
+
+/* Define if plpa is available */
+#undef HAVE_PLPA
+
+/* Define to 1 if you have the <plpa.h> header file. */
+#undef HAVE_PLPA_H
+
+/* Define to 1 if you have the `poll' function. */
+#undef HAVE_POLL
+
+/* Define to 1 if you have the <poll.h> header file. */
+#undef HAVE_POLL_H
+
+/* Define if pthreads is available */
+#undef HAVE_PTHREADS
+
+/* Define to 1 if you have the <pthread.h> header file. */
+#undef HAVE_PTHREAD_H
+
+/* Define to 1 if you have the <sched.h> header file. */
+#undef HAVE_SCHED_H
+
+/* Define to 1 if you have the `select' function. */
+#undef HAVE_SELECT
+
+/* Define to 1 if you have the `sigaction' function. */
+#undef HAVE_SIGACTION
+
+/* Define to 1 if you have the `signal' function. */
+#undef HAVE_SIGNAL
+
+/* Define to 1 if you have the `sigset' function. */
+#undef HAVE_SIGSET
+
+/* Define to 1 if you have the `stat' function. */
+#undef HAVE_STAT
+
+/* Define to 1 if you have the <stdarg.h> header file. */
+#undef HAVE_STDARG_H
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the `strdup' function. */
+#undef HAVE_STRDUP
+
+/* Define to 1 if you have the `strerror' function. */
+#undef HAVE_STRERROR
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strsignal' function. */
+#undef HAVE_STRSIGNAL
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#undef HAVE_SYS_PARAM_H
+
+/* Define to 1 if you have the <sys/socket.h> header file. */
+#undef HAVE_SYS_SOCKET_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/time.h> header file. */
+#undef HAVE_SYS_TIME_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/un.h> header file. */
+#undef HAVE_SYS_UN_H
+
+/* Define to 1 if you have the `time' function. */
+#undef HAVE_TIME
+
+/* Define to 1 if you have the <time.h> header file. */
+#undef HAVE_TIME_H
+
+/* Define if tm.h and library are usable. */
+#undef HAVE_TM_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `unsetenv' function. */
+#undef HAVE_UNSETENV
+
+/* Define to 1 if you have the `usleep' function. */
+#undef HAVE_USLEEP
+
+/* Define to 1 if you have the <windows.h> header file. */
+#undef HAVE_WINDOWS_H
+
+/* Define to 1 if you have the <winsock2.h> header file. */
+#undef HAVE_WINSOCK2_H
+
+/* define if the compiler defines __FUNCTION__ */
+#undef HAVE__FUNCTION__
+
+/* define if the compiler defines __func__ */
+#undef HAVE__FUNC__
+
+/* Definition of enabled checkpointing libraries */
+#undef HYDRA_AVAILABLE_CKPOINTLIBS
+
+/* Definition of enabled demux engines */
+#undef HYDRA_AVAILABLE_DEMUXES
+
+/* Definition of enabled launchers */
+#undef HYDRA_AVAILABLE_LAUNCHERS
+
+/* Definition of enabled RMKS */
+#undef HYDRA_AVAILABLE_RMKS
+
+/* Definition of enabled processor topology libraries */
+#undef HYDRA_AVAILABLE_TOPOLIBS
+
+/* C compiler */
+#undef HYDRA_CC
+
+/* Configure arguments */
+#undef HYDRA_CONFIGURE_ARGS_CLEAN
+
+/* C++ compiler */
+#undef HYDRA_CXX
+
+/* Default checkpointing library */
+#undef HYDRA_DEFAULT_CKPOINTLIB
+
+/* Default demux engine */
+#undef HYDRA_DEFAULT_DEMUX
+
+/* Default launcher */
+#undef HYDRA_DEFAULT_LAUNCHER
+
+/* Default RMK */
+#undef HYDRA_DEFAULT_RMK
+
+/* Default processor topology library */
+#undef HYDRA_DEFAULT_TOPOLIB
+
+/* Fortran 77 compiler */
+#undef HYDRA_F77
+
+/* Fortran 90 compiler */
+#undef HYDRA_F90
+
+/* Hydra release date information */
+#undef HYDRA_RELEASE_DATE
+
+/* Hydra version information */
+#undef HYDRA_VERSION
+
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#undef LT_OBJDIR
+
+/* Define if environ decl needed */
+#undef MANUAL_EXTERN_ENVIRON
+
+/* Define if gethostname needs a declaration */
+#undef NEEDS_GETHOSTNAME_DECL
+
+/* Define if _POSIX_SOURCE needed to get sigaction */
+#undef NEEDS_POSIX_FOR_SIGACTION
+
+/* Define if strsignal needs a declaration */
+#undef NEEDS_STRSIGNAL_DECL
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* The size of `unsigned long', as computed by sizeof. */
+#undef SIZEOF_UNSIGNED_LONG
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Define if memory tracing is enabled */
+#undef USE_MEMORY_TRACING
+
+/* Define if sigaction should be used to set signals */
+#undef USE_SIGACTION
+
+/* Define if signal should be used to set signals */
+#undef USE_SIGNAL
+
+/* Version number of package */
+#undef VERSION
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif
+
+/* Define to the equivalent of the C99 'restrict' keyword, or to
+   nothing if this is not supported.  Do not define if restrict is
+   supported directly.  */
+#undef restrict
+/* Work around a bug in Sun C++: it does not support _Restrict, even
+   though the corresponding Sun C compiler does, which causes
+   "#define restrict _Restrict" in the previous line.  Perhaps some future
+   version of Sun C++ will work with _Restrict; if so, it'll probably
+   define __RESTRICT, just as Sun C does.  */
+#if defined __SUNPRO_CC && !defined __RESTRICT
+# define _Restrict
+#endif
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+#undef size_t
+
+/* Define to empty if the keyword `volatile' does not work. Warning: valid
+   code using `volatile' can become incorrect without. Disable with care. */
+#undef volatile

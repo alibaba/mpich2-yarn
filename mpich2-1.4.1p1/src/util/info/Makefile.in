@@ -1,0 +1,281 @@
+# This Makefile.in created by simplemake.  Do not edit
+
+# @configure_input@
+
+# --------------------------------------------------------------------------
+all: all-redirect
+
+SHELL           = @SHELL@
+AR              = @AR@
+AR_FLAGS        = @AR_FLAGS@
+RANLIB          = @RANLIB@
+top_builddir    = @master_top_builddir@
+abs_builddir    = @abs_builddir@
+master_top_srcdir  = @master_top_srcdir@
+srcdir          = @srcdir@
+abs_srcdir      = @abs_srcdir@
+top_srcdir      = @top_srcdir@
+DEFS            = @DEFS@ -I. -I${srcdir}
+CPPFLAGS        = @CPPFLAGS@
+MAKE            = @MAKE@
+MPILIBNAME      = @MPILIBNAME@
+PMPILIBNAME     = @PMPILIBNAME@
+
+CC              = @CC@
+CFLAGS          = @CFLAGS@ $(MPICH2_MAKE_CFLAGS)
+C_COMPILE       = $(CC) $(DEFS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS)
+LIBTOOL         = @LIBTOOL@
+CC_SHL          = @CC_SHL@
+C_COMPILE_SHL   = $(CC_SHL) $(DEFS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS)
+
+VPATH = .:@srcdir@
+mpi_sources = info_create.c info_delete.c \
+ info_dup.c info_free.c info_get.c info_getn.c info_getnth.c \
+ info_getvallen.c info_set.c
+HEADERS = mpiinfo.h
+INCLUDES = -I../../include -I${top_srcdir}/src/include
+
+.SUFFIXES:
+.SUFFIXES: .o .lo .c 
+.c.o:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -c $< ; \
+	fi
+	@$(C_COMPILE) -c $<
+.c.lo:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c $< -o _s$*.o ; \
+	echo mv -f _s$*.o $*.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c $< -o _s$*.o
+	@mv -f _s$*.o $*.lo
+.c:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -o $* $< $(LDFLAGS) $(LIBS) ; \
+	fi
+	@$(C_COMPILE) -o $* $< $(LDFLAGS) $(LIBS)
+apply: 
+	$(ACTION) $(ACTION_INPUT)
+clean: 
+	-@rm -f *.o ${srcdir}/*.o 
+	-@rm -f .libstamp0 .libstamp1 .libstamp2 .libstamp3 
+	-@rm -f *.lo ${srcdir}/*.lo
+distclean:  clean distclean-xxx remove-makefile
+distclean-xxx:
+	-@rm -f Makefile
+	-@rm -rf autom4te*.cache
+	-@rm -rf $(DEPS_DIR)
+	-@rm -f TAGS
+remove-makefile:
+	rm -f Makefile
+remove-genmakefiles:
+	rm -f  Makefile
+all-redirect: .libstamp0 ../../../lib/lib${MPILIBNAME}.a
+	@if [ -n "@NO_WEAK_SYM@" ] ; then \
+	    ${MAKE} .libstamp2 || exit 1; \
+	fi
+	@if [ "@ENABLE_SHLIB@" != "none" ] ; then \
+	    ${MAKE} .libstamp1 || exit 1; \
+	    if [ -n "@NO_WEAK_SYM@" ] ; then \
+	        ${MAKE} .libstamp3 || exit 1; \
+	    fi ; \
+	fi
+
+.libstamp0 ../../../lib/lib${MPILIBNAME}.a: infoutil.o info_create.o info_delete.o info_dup.o \
+	info_free.o info_get.o info_getn.o info_getnth.o info_getvallen.o info_set.o 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.a $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.a $? ; \
+	fi
+	@${AR} ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.a $?
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  RANLIB          lib${MPILIBNAME}.a" ; \
+	else \
+	  echo ${RANLIB} ../../../lib/lib${MPILIBNAME}.a ; \
+	fi
+	@${RANLIB} ../../../lib/lib${MPILIBNAME}.a
+	date > .libstamp0
+.libstamp1 ../../../lib/lib${MPILIBNAME}.la: infoutil.lo info_create.lo info_delete.lo \
+	info_dup.lo info_free.lo info_get.lo info_getn.lo info_getnth.lo info_getvallen.lo \
+	info_set.lo 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.la $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.la $? ; \
+	fi
+	@${AR} ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.la $?
+	date > .libstamp1
+
+# --------------------------------------------------------------------------
+.libstamp2: _info_create.o _info_delete.o _info_dup.o _info_free.o _info_get.o _info_getn.o _info_getnth.o \
+	_info_getvallen.o _info_set.o 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} ../../../lib/lib${PMPILIBNAME}.a $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} ../../../lib/lib${PMPILIBNAME}.a $? ; \
+	fi
+	@${AR} ${AR_FLAGS} ../../../lib/lib${PMPILIBNAME}.a $?
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  RANLIB          lib${PMPILIBNAME}.a" ; \
+	else \
+	  echo ${RANLIB} ../../../lib/lib${PMPILIBNAME}.a ; \
+	fi
+	@${RANLIB} ../../../lib/lib${PMPILIBNAME}.a
+	date > .libstamp2
+.libstamp3: _info_create.lo _info_delete.lo _info_dup.lo _info_free.lo _info_get.lo _info_getn.lo \
+	_info_getnth.lo _info_getvallen.lo _info_set.lo 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} ../../../lib/lib${PMPILIBNAME}.la $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} ../../../lib/lib${PMPILIBNAME}.la $? ; \
+	fi
+	@${AR} ${AR_FLAGS} ../../../lib/lib${PMPILIBNAME}.la $?
+	date > .libstamp3
+_info_create.o: info_create.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/info_create.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_create.c -o _info_create.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_create.c -o _info_create.o
+_info_create.lo: info_create.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/info_create.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_create.c -o _info_create.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_create.c -o _info_create.lo
+_info_delete.o: info_delete.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/info_delete.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_delete.c -o _info_delete.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_delete.c -o _info_delete.o
+_info_delete.lo: info_delete.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/info_delete.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_delete.c -o _info_delete.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_delete.c -o _info_delete.lo
+_info_dup.o: info_dup.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/info_dup.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_dup.c -o _info_dup.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_dup.c -o _info_dup.o
+_info_dup.lo: info_dup.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/info_dup.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_dup.c -o _info_dup.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_dup.c -o _info_dup.lo
+_info_free.o: info_free.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/info_free.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_free.c -o _info_free.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_free.c -o _info_free.o
+_info_free.lo: info_free.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/info_free.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_free.c -o _info_free.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_free.c -o _info_free.lo
+_info_get.o: info_get.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/info_get.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_get.c -o _info_get.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_get.c -o _info_get.o
+_info_get.lo: info_get.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/info_get.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_get.c -o _info_get.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_get.c -o _info_get.lo
+_info_getn.o: info_getn.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/info_getn.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getn.c -o _info_getn.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getn.c -o _info_getn.o
+_info_getn.lo: info_getn.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/info_getn.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getn.c -o _info_getn.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getn.c -o _info_getn.lo
+_info_getnth.o: info_getnth.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/info_getnth.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getnth.c -o _info_getnth.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getnth.c -o _info_getnth.o
+_info_getnth.lo: info_getnth.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/info_getnth.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getnth.c -o _info_getnth.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getnth.c -o _info_getnth.lo
+_info_getvallen.o: info_getvallen.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/info_getvallen.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getvallen.c -o _info_getvallen.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getvallen.c -o _info_getvallen.o
+_info_getvallen.lo: info_getvallen.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/info_getvallen.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getvallen.c -o _info_getvallen.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_getvallen.c -o _info_getvallen.lo
+_info_set.o: info_set.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/info_set.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_set.c -o _info_set.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/info_set.c -o _info_set.o
+_info_set.lo: info_set.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/info_set.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_set.c -o _info_set.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/info_set.c -o _info_set.lo
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+SOURCES         =  infoutil.c info_create.c info_delete.c info_dup.c info_free.c info_get.c \
+	info_getn.c info_getnth.c info_getvallen.c info_set.c 
+HEADERFILES     = $(HEADERS)
+SOURCEFILES     = $(SOURCES)
+# --------------------------------------------------------------------------
+#
+
+.POSIX:
+
+FORCE_TARGET:
+

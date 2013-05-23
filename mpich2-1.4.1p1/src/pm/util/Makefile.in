@@ -1,0 +1,146 @@
+# This Makefile.in created by simplemake.  Do not edit
+
+# @configure_input@
+
+# --------------------------------------------------------------------------
+all: all-redirect
+
+SHELL           = @SHELL@
+AR              = @AR@
+AR_FLAGS        = @AR_FLAGS@
+RANLIB          = @RANLIB@
+top_builddir    = @master_top_builddir@
+abs_builddir    = @abs_builddir@
+master_top_srcdir  = @master_top_srcdir@
+srcdir          = @srcdir@
+abs_srcdir      = @abs_srcdir@
+DEFS            = @DEFS@ -I. -I${srcdir}
+CPPFLAGS        = @CPPFLAGS@
+MAKE            = @MAKE@
+MPILIBNAME      = @MPILIBNAME@
+CC              = @CC@
+CFLAGS          = @CFLAGS@ $(MPICH2_MAKE_CFLAGS)
+C_COMPILE       = $(CC) $(DEFS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS)
+LIBTOOL         = @LIBTOOL@
+CC_SHL          = @CC_SHL@
+C_COMPILE_SHL   = $(CC_SHL) $(DEFS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS)
+
+
+VPATH = .:@srcdir@
+INCLUDES = -I../../include -I${master_top_srcdir}/src/include \
+    -I../../pmi/simple -I${master_top_srcdir}/src/pmi/simple
+
+.SUFFIXES:
+.SUFFIXES: .o .lo .c .o 
+.c.o:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -c $< ; \
+	fi
+	@$(C_COMPILE) -c $<
+.c.lo:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c $< -o _s$*.o ; \
+	echo mv -f _s$*.o $*.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c $< -o _s$*.o
+	@mv -f _s$*.o $*.lo
+.c:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -o $* $< $(LDFLAGS) $(LIBS) ; \
+	fi
+	@$(C_COMPILE) -o $* $< $(LDFLAGS) $(LIBS)
+apply: 
+	$(ACTION) $(ACTION_INPUT)
+clean:  clean-local
+	-@rm -f *.o ${srcdir}/*.o 
+	-@rm -f .libstamp0 .libstamp1 
+	-@rm -f *.lo ${srcdir}/*.lo
+distclean:  clean distclean-local distclean-xxx remove-makefile
+distclean-xxx:
+	-@rm -f Makefile test/Makefile config.status config.log config.cache *conf.cache config.system
+	-@rm -rf autom4te*.cache
+	-@rm -f pmutilconf.h
+	-@rm -rf $(DEPS_DIR)
+	-@rm -f TAGS
+remove-makefile:
+	rm -f Makefile
+remove-genmakefiles:
+	rm -f  Makefile
+all-redirect: libmpiexec.a
+	@if [ "@ENABLE_SHLIB@" != "none" ] ; then \
+	    ${MAKE} libmpiexec.la || exit 1; \
+	fi
+
+libmpiexec.a: cmnargs.o process.o ioloop.o pmiserv.o labelout.o env.o newsession.o rm.o pmiport.o \
+	dbgiface.o safestr2.o simple_pmiutil2.o ../../util/msgs/msgprint.o 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} libmpiexec.a $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} libmpiexec.a $? ; \
+	fi
+	@${AR} ${AR_FLAGS} libmpiexec.a $?
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  RANLIB          libmpiexec.a" ; \
+	else \
+	  echo ${RANLIB} libmpiexec.a ; \
+	fi
+	@${RANLIB} libmpiexec.a
+libmpiexec.la: cmnargs.lo process.lo ioloop.lo pmiserv.lo labelout.lo env.lo newsession.lo rm.lo \
+	pmiport.lo dbgiface.lo safestr2.lo simple_pmiutil2.lo ../../util/msgs/msgprint.lo 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} libmpiexec.la $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} libmpiexec.la $? ; \
+	fi
+	@${AR} ${AR_FLAGS} libmpiexec.la $?
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+SOURCES         =  cmnargs.c process.c ioloop.c pmiserv.c labelout.c env.c newsession.c rm.c \
+	dbgiface.c safestr2.c simple_pmiutil2.c 
+HEADERFILES     = $(HEADERS)
+SOURCEFILES     = $(SOURCES)
+# --------------------------------------------------------------------------
+
+# We use the msg print routines (for now) - include these in the mpiexec
+# library so that we don't need to copy the source files
+# safestr2 and simple_pmiutil2 are subsets of safestr and simple_pmiutil
+# respectively, since these may no longer be used by other applications
+# (they make use of routines like the trmem routines that may no longer
+# be used by other applications).
+
+
+distclean-local:
+clean-local:
+	-rm -f libmpiexec.a
+
+# Ensure that dgbiface is compiled with the -g option, as the symbols must
+# be present for the debugger to see them
+dgbiface.o: $(srcdir)/dgbiface.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -c -g $< ; \
+	fi
+	@$(C_COMPILE) -c -g $<
+dgbiface.lo: $(srcdir)/dgbiface.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c -g $< -o _s$*.o ; \
+	echo mv -f _s$*.o $*.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c -g $< -o _s$*.o
+	@mv -f _s$*.o $*.lo
+
+
+.POSIX:
+
+FORCE_TARGET:
+

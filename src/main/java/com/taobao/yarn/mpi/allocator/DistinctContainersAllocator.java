@@ -25,12 +25,11 @@ import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.util.Records;
 
-import com.taobao.yarn.mpi.server.Utilities;
+import com.taobao.yarn.mpi.util.Utilities;
 
 /**
  * Allocate containers on distinct nodes
  */
-@Deprecated
 public class DistinctContainersAllocator implements ContainersAllocator {
   private static final Log LOG = LogFactory.getLog(DistinctContainersAllocator.class);
   // Handle to communicate with the Resource Manager
@@ -126,7 +125,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
         }
       }
 
-      // Second phase allocation
+      // Second phase allocation, release the containers
       if (firstAllocationSuccess) {
         askCount = numContainer - numAllocatedContainers.get();
         List<ResourceRequest> requests = new ArrayList<ResourceRequest>(askCount);
@@ -151,6 +150,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
       }  // end if
     }  // end while
 
+    // The "Distinct" of the class name means each host has only one process
     for (Container container : result) {
       hostToProcNum.put(container.getNodeId().getHost(), new Integer(1));
     }
@@ -159,8 +159,8 @@ public class DistinctContainersAllocator implements ContainersAllocator {
 
   /**
    * Setup a container request on specified node
-   * @param node
-   * @return
+   * @param node the specified node
+   * @return ResourceRequest sent to RM
    */
   private ResourceRequest setupAContainerAskForRM(String node) {
     ResourceRequest request = Records.newRecord(ResourceRequest.class);

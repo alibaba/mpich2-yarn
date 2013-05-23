@@ -1,0 +1,20 @@
+# This Makefile.sm generated automatically by f77tof90
+# from test/mpi/f77/coll/Makefile.sm.  DO NOT EDIT
+LDADD = ../util/mtestf90.o 
+DEPADD = @MPILIBLOC@ ../util/mtestf90.o
+smvar_do_sharedlibs = 0
+
+uallreducef90_SOURCES  = uallreducef90.f90
+exscanf90_SOURCES     = exscanf90.f90
+alltoallwf90_SOURCES  = alltoallwf90.f90
+inplacef90_SOURCES  = inplacef90.f90
+allredint8f90_SOURCES  = allredint8f90.f90
+allredopttf90_SOURCES = allredopttf90.f90
+reducelocalf90_SOURCES  = reducelocalf90.f90
+
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=$(bindir)/mpiexec \
+		   	-xmlfile=summary.xml
+../util/mtestf90.o: 
+	(cd ../util && $(MAKE) mtestf90.o)

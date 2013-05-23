@@ -1,0 +1,262 @@
+(C) 2011 by Argonne National Laboratory.
+    See COPYRIGHT in top-level directory.
+
+This file lists the various environment variables available to change the
+behavior of the MPICH2 library.  These are intended to be used by advanced
+users.
+---------------------------------------------------------------------------
+
+MPICH_ALLTOALL_SHORT_MSG_SIZE
+    Aliases: MPIR_PARAM_ALLTOALL_SHORT_MSG_SIZE
+    Description: the short message algorithm will be used if the
+        per-destination message size (sendcount*size(sendtype)) is <= this
+        value
+    Default: 256
+
+MPICH_ALLTOALL_MEDIUM_MSG_SIZE
+    Aliases: MPIR_PARAM_ALLTOALL_MEDIUM_MSG_SIZE
+    Description: the medium message algorithm will be used if the
+        per-destination message size (sendcount*size(sendtype)) is <= this
+        value and larger than ALLTOALL_SHORT_MSG_SIZE
+    Default: 32768
+
+MPICH_ALLTOALL_THROTTLE
+    Aliases: MPIR_PARAM_ALLTOALL_THROTTLE
+    Description: max no. of irecvs/isends posted at a time in some alltoall
+        algorithms. Setting it to 0 causes all irecvs/isends to be posted
+        at once.
+    Default: 4
+
+MPICH_REDSCAT_COMMUTATIVE_LONG_MSG_SIZE
+    Aliases: MPIR_PARAM_REDSCAT_COMMUTATIVE_LONG_MSG_SIZE
+    Description: the long message algorithm will be used if the operation
+        is commutative and the send buffer size is >= this value (in bytes)
+    Default: 524288
+
+MPICH_BCAST_MIN_PROCS
+    Aliases: MPIR_PARAM_BCAST_MIN_PROCS
+    Description: the minimum number of processes in a communicator to use a
+        non-binomial broadcast algorithm
+    Default: 8
+
+MPICH_BCAST_SHORT_MSG_SIZE
+    Aliases: MPIR_PARAM_BCAST_SHORT_MSG_SIZE
+    Description: the short message algorithm will be used if the send
+        buffer size is < this value (in bytes)
+    Default: 12288
+
+MPICH_BCAST_LONG_MSG_SIZE
+    Aliases: MPIR_PARAM_BCAST_LONG_MSG_SIZE
+    Description: the long message algorithm will be used if the send buffer
+        size is >= this value (in bytes)
+    Default: 524288
+
+MPICH_ALLGATHER_SHORT_MSG_SIZE
+    Aliases: MPIR_PARAM_ALLGATHER_SHORT_MSG_SIZE
+    Description: For MPI_Allgather and MPI_Allgatherv, the short message
+        algorithm will be used if the send buffer size is < this value (in
+        bytes).
+    Default: 81920
+
+MPICH_ALLGATHER_LONG_MSG_SIZE
+    Aliases: MPIR_PARAM_ALLGATHER_LONG_MSG_SIZE
+    Description: For MPI_Allgather and MPI_Allgatherv, the long message
+        algorithm will be used if the send buffer size is >= this value (in
+        bytes)
+    Default: 524288
+
+MPICH_REDUCE_SHORT_MSG_SIZE
+    Aliases: MPIR_PARAM_REDUCE_SHORT_MSG_SIZE
+    Description: the short message algorithm will be used if the send
+        buffer size is <= this value (in bytes)
+    Default: 2048
+
+MPICH_ALLREDUCE_SHORT_MSG_SIZE
+    Aliases: MPIR_PARAM_ALLREDUCE_SHORT_MSG_SIZE
+    Description: the short message algorithm will be used if the send
+        buffer size is <= this value (in bytes)
+    Default: 2048
+
+MPICH_GATHER_VSMALL_MSG_SIZE
+    Aliases: MPIR_PARAM_GATHER_VSMALL_MSG_SIZE
+    Description: use a temporary buffer for intracommunicator MPI_Gather if
+        the send buffer size is < this value (in bytes)
+    Default: 1024
+
+MPICH_GATHER_INTER_SHORT_MSG_SIZE
+    Aliases: MPIR_PARAM_GATHER_INTER_SHORT_MSG_SIZE
+    Description: use the short message algorithm for intercommunicator
+        MPI_Gather if the send buffer size is < this value (in bytes)
+    Default: 2048
+
+MPICH_GATHERV_INTER_SSEND_MIN_PROCS
+    Aliases: MPIR_PARAM_GATHERV_INTER_SSEND_MIN_PROCS
+             MPICH2_GATHERV_MIN_PROCS
+    Description: Use Ssend (synchronous send) for intercommunicator
+        MPI_Gatherv if the "group B" size is >= this value.  Specifying
+        "-1" always avoids using Ssend.  For backwards compatibility,
+        specifying "0" uses the default value.
+    Default: 32
+
+MPICH_SCATTER_INTER_SHORT_MSG_SIZE
+    Aliases: MPIR_PARAM_SCATTER_INTER_SHORT_MSG_SIZE
+    Description: use the short message algorithm for intercommunicator
+        MPI_Scatter if the send buffer size is < this value (in bytes)
+    Default: 2048
+
+MPICH_ALLGATHERV_PIPELINE_MSG_SIZE
+    Aliases: MPIR_PARAM_ALLGATHERV_PIPELINE_MSG_SIZE
+    Description: The smallest message size that will be used for the
+        pipelined, large-message, ring algorithm in the MPI_Allgatherv
+        implementation.
+    Default: 32768
+
+MPICH_COMM_SPLIT_USE_QSORT
+    Aliases: MPIR_PARAM_COMM_SPLIT_USE_QSORT
+    Description: Use qsort(3) in the implementation of MPI_Comm_split
+        instead of bubble sort.
+    Default: 1
+
+MPICH_NOLOCAL
+    Aliases: MPICH_NO_LOCAL
+             MPIR_PARAM_NOLOCAL
+             MPIR_PARAM_NO_LOCAL
+    Description: If true, force all processes to operate as though all
+        processes are located on another node.  For example, this disables
+        shared memory communication hierarchical collectives.
+    Default: 0
+
+MPICH_ODD_EVEN_CLIQUES
+    Aliases: MPICH_EVEN_ODD_CLIQUES
+             MPIR_PARAM_ODD_EVEN_CLIQUES
+             MPIR_PARAM_EVEN_ODD_CLIQUES
+    Description: If true, odd procs on a node are seen as local to each
+        other, and even procs on a node are seen as local to each other. 
+        Used for debugging on a single machine.
+    Default: 0
+
+MPICH_MEMDUMP
+    Aliases: MPIR_PARAM_MEMDUMP
+    Description: If true, list any memory that was allocated by MPICH2 and
+        that remains allocated when MPI_Finalize completes.
+    Default: 1
+
+MPICH_PROCTABLE_SIZE
+    Aliases: MPIR_PARAM_PROCTABLE_SIZE
+    Description: Size of the "MPIR" debugger interface proctable (process
+        table).
+    Default: 64
+
+MPICH_PROCTABLE_PRINT
+    Aliases: MPIR_PARAM_PROCTABLE_PRINT
+    Description: If true, dump the proctable entries at
+        MPIR_WaitForDebugger-time. (currently compile-time disabled by "#if
+        0")
+    Default: 1
+
+MPICH_ERROR_CHECKING
+    Aliases: MPIR_PARAM_ERROR_CHECKING
+    Description: If true, perform checks for errors, typically to verify
+        valid inputs to MPI routines.  Only effective when MPICH2 is
+        configured with --enable-error-checking=runtime .
+    Default: 1
+
+MPICH_PRINT_ERROR_STACK
+    Aliases: MPIR_PARAM_PRINT_ERROR_STACK
+    Description: If true, print an error stack trace at error handling
+        time.
+    Default: 1
+
+MPICH_CHOP_ERROR_STACK
+    Aliases: MPIR_PARAM_CHOP_ERROR_STACK
+    Description: If >0, truncate error stack output lines this many
+        characters wide.  If 0, do not truncate, and if <0 use a sensible
+        default.
+    Default: 0
+
+MPICH_NEM_LMT_DMA_THRESHOLD
+    Aliases: MPIR_PARAM_NEM_LMT_DMA_THRESHOLD
+    Description: Messages larger than this size will use the "dma" (knem)
+        intranode LMT implementation, if it is enabled and available.
+    Default: 2097152
+
+MPICH_NEMESIS_NETMOD
+    Aliases: MPIR_PARAM_NEMESIS_NETMOD
+    Description: If non-empty, this parameter specifies which network
+        module should be used for communication.
+    Default: ""
+
+MPICH_INTERFACE_HOSTNAME
+    Aliases: MPIR_PARAM_INTERFACE_HOSTNAME
+    Description: If non-NULL, this parameter specifies the IP address that
+        other processes should use when connecting to this process. This
+        parameter is mutually exclusive with the MPICH_NETWORK_IFACE
+        parameter and it is an error to set them both.
+    Default: NULL
+
+MPICH_NETWORK_IFACE
+    Aliases: MPIR_PARAM_NETWORK_IFACE
+    Description: If non-NULL, this parameter specifies which
+        pseudo-ethernet interface the tcp netmod should use (e.g., "eth1",
+        "ib0").  Note, this is a Linux-specific parameter. This parameter
+        is mutually exclusive with the MPICH_INTERFACE_HOSTNAME parameter
+        and it is an error to set them both.
+    Default: NULL
+
+MPICH_HOST_LOOKUP_RETRIES
+    Aliases: MPIR_PARAM_HOST_LOOKUP_RETRIES
+    Description: This parameter controls the number of times to retry the 
+        gethostbyname() function before giving up.
+    Default: 10
+
+MPICH_DEBUG_HOLD
+    Aliases: MPIR_PARAM_DEBUG_HOLD
+    Description: If true, causes processes to wait in MPI_Init and
+        MPI_Initthread for a debugger to be attached.  Once the debugger
+        has attached, the variable 'hold' should be set to 0 in order to
+        allow the process to continue (e.g., in gdb, "set hold=0").
+    Default: 0
+
+MPICH_ENABLE_CKPOINT
+    Aliases: MPIR_PARAM_ENABLE_CKPOINT
+    Description: If true, enables checkpointing support and returns an
+        error if checkpointing library cannot be initialized.
+    Default: 0
+
+MPICH_ENABLE_COLL_FT_RET
+    Aliases: MPIR_PARAM_ENABLE_COLL_FT_RET
+    Description: Collectives called on a communicator with a failed process
+        should not hang, however the result of the operation may be invalid
+        even though the function returns MPI_SUCCESS.  This option enables
+        an experimental feature that will return an error if the result of
+        the collective is invalid.
+    Default: 0
+
+MPICH_ABORT_ON_LEAKED_HANDLES
+    Aliases: MPIR_PARAM_ABORT_ON_LEAKED_HANDLES
+    Description: If true, MPI will call MPI_Abort at MPI_Finalize if any
+        MPI object handles have been leaked.  For example, if MPI_Comm_dup
+        is called without calling a corresponding MPI_Comm_free.  For
+        uninteresting reasons, enabling this option may prevent all known
+        object leaks from being reported.  MPICH2 must have been configure
+        with "--enable-g=handlealloc" or better in order for this
+        functionality to work.
+    Default: 0
+
+MPICH_PORT_RANGE
+    Aliases: MPICH_PORTRANGE
+             MPIR_PARAM_PORT_RANGE
+             MPIR_PARAM_PORTRANGE
+    Description: "The MPICH_PORT_RANGE environment variable allows you to
+        specify the range of TCP ports to be used by the process manager
+        and the MPICH2 library. The format of this variable is
+        <low>:<high>."
+    Default: {0,0}
+
+---------------------------------------------------------------------------
+
+Automatically generated
+  by:   ./maint/genparams
+  at:   Thu Sep  1 13:55:43 2011
+  from: src/util/param/params.yml (md5sum 6d969dfaee560cd15ba5b677edcb1867)
+

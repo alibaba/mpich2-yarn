@@ -2,12 +2,15 @@ package com.taobao.yarn.mpi.util;
 
 import static org.junit.Assert.fail;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.yarn.util.StringHelper;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.taobao.yarn.mpi.server.Utilities;
-
 public class TestUtilities {
+  static Log LOG = LogFactory.getLog(TestUtilities.class);
 
   @Test
   public void testGetRandomPhrase() {
@@ -26,6 +29,23 @@ public class TestUtilities {
           fail("Wrong phrase " + s);
       }
     }
+  }
+
+  @Test
+  public void testLocalhostName() {
+    String localhost = NetUtils.getHostname();
+    Assert.assertNotNull(localhost);
+    Assert.assertNotSame("localhost", localhost);
+    Assert.assertNotSame("local", localhost);
+    Assert.assertNotSame("127.0.0.1", localhost);
+    Assert.assertNotSame("0.0.0.0", localhost);
+    LOG.info("Localhost: " + localhost);
+  }
+
+  @Test
+  public void testPAJoin() {
+    String s = StringHelper.pajoin("A", "B", "C");
+    Assert.assertEquals(s, "A/:B/:C");
   }
 
 }

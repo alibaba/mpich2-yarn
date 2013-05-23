@@ -1,0 +1,119 @@
+# This Makefile.in created by simplemake.  Do not edit
+
+# @configure_input@
+
+# --------------------------------------------------------------------------
+all: all-redirect
+
+SHELL           = @SHELL@
+abs_builddir    = @abs_builddir@
+bindir          = @bindir@
+exec_prefix     = @exec_prefix@
+prefix          = @prefix@
+srcdir          = @srcdir@
+abs_srcdir      = @abs_srcdir@
+DEFS            = @DEFS@ -I. -I${srcdir}
+CPPFLAGS        = @CPPFLAGS@
+LIBS            = @LIBS@
+MAKE            = @MAKE@
+CC              = @CC@
+CFLAGS          = @CFLAGS@ $(MPICH2_MAKE_CFLAGS)
+C_COMPILE       = $(CC) $(DEFS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS)
+C_LINK         = $(CC)
+F77             = @F77@
+FFLAGS          = @FFLAGS@
+F77_COMPILE     = $(F77) $(FFLAGS) $(F77INCLUDES)
+F77_LINK       = $(F77)
+LDFLAGS     =  @LDFLAGS@ 
+
+VPATH = .:@srcdir@
+F77INCLUDES = -I.
+INCLUDES = -I../../include -I${srcdir}/../../include
+c2f2c_CFLAGSADD = -I../../include
+
+.SUFFIXES:
+.SUFFIXES: .o .c .f 
+.c.o:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -c $< ; \
+	fi
+	@$(C_COMPILE) -c $<
+.c:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -o $* $< $(LDFLAGS) $(LIBS) ; \
+	fi
+	@$(C_COMPILE) -o $* $< $(LDFLAGS) $(LIBS)
+.f.o:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  F77             $<" ; \
+	else \
+	  echo $(F77_COMPILE) -c $< ; \
+	fi
+	@$(F77_COMPILE) -c $<
+.f:
+	$(F77_COMPILE) -o $* $< $(LDFLAGS) $(LIBS)
+apply: 
+	$(ACTION) $(ACTION_INPUT)
+clean: 
+	-@rm -f *.o ${srcdir}/*.o ctypesinf allocmemf c2fmult c2f2cf
+	-@rm -f ctypesinf.exe allocmemf.exe c2fmult.exe c2f2cf.exe
+	-@rm -f core core.[0-9]*
+	-@rm -f *.lo ${srcdir}/*.lo
+	-@rm -f *.irlog*
+distclean:  clean distclean-xxx remove-makefile
+distclean-xxx:
+	-@rm -f add1size.h Makefile testlist
+	-@rm -rf autom4te*.cache
+	-@rm -rf $(DEPS_DIR)
+	-@rm -f TAGS
+remove-makefile:
+	rm -f Makefile
+remove-genmakefiles:
+	rm -f  Makefile
+all-redirect: c2f2cf ctypesinf c2fmult
+
+ctypesinf: ctypesinf.o ctypesfromc.o   @MPILIBLOC@ ../util/mtestf.o ../../util/mtest.o
+	$(F77_LINK) $(FFLAGS) $(LDFLAGS) -o ctypesinf ctypesinf.o ctypesfromc.o  \
+	../util/mtestf.o ${LIBS} 
+allocmemf: allocmemf.o   @MPILIBLOC@ ../util/mtestf.o ../../util/mtest.o
+	$(F77_LINK) $(FFLAGS) $(LDFLAGS) -o allocmemf allocmemf.o  ../util/mtestf.o ${LIBS}
+c2fmult: c2fmult.o   @MPILIBLOC@ ../util/mtestf.o ../../util/mtest.o
+	$(C_LINK) $(CFLAGS) $(LDFLAGS) -o c2fmult c2fmult.o  ../../util/mtest.o ${LIBS}
+c2f2cf: c2f2c.o c2f2cf.o   @MPILIBLOC@ ../util/mtestf.o ../../util/mtest.o
+	$(F77_LINK) $(FFLAGS) $(LDFLAGS) -o c2f2cf c2f2c.o c2f2cf.o  ../util/mtestf.o  ${LIBS}
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+SOURCES         =  allocmemf.f c2f2c.c c2f2cf.f ctypesinf.f ctypesfromc.c c2fmult.c
+HEADERFILES     = $(HEADERS)
+SOURCEFILES     = $(SOURCES)
+# --------------------------------------------------------------------------
+# We don't use a general LDADD for mtestf.o because c2fmult is a C-only
+# program
+# "F77INCLUDES = -I." is needed when allocmemf.f is compiled,
+# i.e. when cray-pointer is available, because it includes add1size.h
+
+# allocmemf is an "extra" program because it requires a Fortran extension
+
+
+# need to add this to get it to appear in ../../f90/ext/Makefile.sm
+
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=$(bindir)/mpiexec \
+		   	-xmlfile=summary.xml
+
+../util/mtestf.o: 
+	(cd ../util && $(MAKE) mtestf.o)
+
+../../util/mtest.o:
+	(cd ../../util && $(MAKE))
+
+.POSIX:
+
+FORCE_TARGET:
+

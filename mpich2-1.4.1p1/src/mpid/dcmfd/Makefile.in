@@ -1,0 +1,81 @@
+# This Makefile.in created by simplemake.  Do not edit
+
+# @configure_input@
+
+# --------------------------------------------------------------------------
+all: all-redirect
+
+SHELL           = @SHELL@
+INSTALL         = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_SCRIPT  = @INSTALL_SCRIPT@
+INSTALL_DATA    = @INSTALL_DATA@
+MKDIR_P         = @MKDIR_P@
+abs_builddir    = @abs_builddir@
+srcdir          = @srcdir@
+abs_srcdir      = @abs_srcdir@
+prefix          = @prefix@
+includedir      = @includedir@
+MAKE            = @MAKE@
+MPILIBNAME      = @MPILIBNAME@
+
+VPATH = .:@srcdir@
+
+.SUFFIXES:
+# Some make programs complain if no suffixes are set
+.SUFFIXES: .c .o
+apply: 
+	$(ACTION) $(ACTION_INPUT)
+	(cd src && ${MAKE} apply )
+clean: 
+	-@rm -f *.o ${srcdir}/*.o 
+	-@rm -f *.lo ${srcdir}/*.lo
+	(cd src && ${MAKE} clean )
+distclean:  clean distclean-local distclean-xxx remove-makefile
+distclean-xxx:
+	if [ -s src/Makefile ] ; then (cd src && ${MAKE} distclean ) ; fi
+	-@rm -f localdefs config.status config.log config.cache *conf.cache config.system
+	-@rm -rf autom4te*.cache
+	-@rm -f include/mpid_config.h
+	-@rm -rf $(DEPS_DIR)
+	-@rm -f TAGS
+remove-makefile:
+	rm -f Makefile
+remove-genmakefiles:
+	rm -f  Makefile
+all-redirect:
+	@(cd src && ${MAKE} all )
+
+# --------------------------------------------------------------------------
+# Install target
+install:  FORCE_TARGET 
+	if [ ! -d ${DESTDIR}${prefix} ] ; then $(MKDIR_P) ${DESTDIR}${prefix} ; fi
+	if [ ! -d ${DESTDIR}${includedir} ] ; then $(MKDIR_P) ${DESTDIR}${includedir} ; fi
+	$(INSTALL_DATA)  ${srcdir}/include/mpix.h ${DESTDIR}${includedir}/mpix.h
+	$(INSTALL_DATA)  ${srcdir}/include/mpido_properties.h ${DESTDIR}${includedir}/mpido_properties.h
+
+install-strip:
+	$(MAKE) INSTALL_STRIP_FLAG=-s install
+uninstall: 
+	-rm -f ${DESTDIR}${includedir}/mpix.h
+	-rm -f ${DESTDIR}${includedir}/mpido_properties.h
+installcheck: 
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+HEADERFILES     = $(HEADERS)
+SOURCEFILES     = $(SOURCES)
+# --------------------------------------------------------------------------
+
+distclean-local:
+	-rm -f include/mpidi_bg_conf.h
+
+maintainerclean-local:
+	-rm -f include/mpidi_bg_conf.h.in
+
+echomaxprocname:
+	@echo 131070
+
+.POSIX:
+
+FORCE_TARGET:
+

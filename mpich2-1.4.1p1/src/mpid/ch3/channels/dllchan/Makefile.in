@@ -1,0 +1,91 @@
+# This Makefile.in created by simplemake.  Do not edit
+
+# @configure_input@
+
+# --------------------------------------------------------------------------
+all: all-redirect
+
+SHELL           = @SHELL@
+abs_builddir    = @abs_builddir@
+exec_prefix     = @exec_prefix@
+prefix          = @prefix@
+libdir          = @libdir@
+srcdir          = @srcdir@
+abs_srcdir      = @abs_srcdir@
+MAKE            = @MAKE@
+MPILIBNAME      = @MPILIBNAME@
+
+VPATH = .:@srcdir@
+
+.SUFFIXES:
+# Some make programs complain if no suffixes are set
+.SUFFIXES: .c .o
+apply: 
+	$(ACTION) $(ACTION_INPUT)
+	(cd src && ${MAKE} apply )
+clean:  clean-local
+	-@rm -f *.o ${srcdir}/*.o 
+	-@rm -f *.lo ${srcdir}/*.lo
+	(cd src && ${MAKE} clean )
+distclean:  clean distclean-local distclean-xxx remove-makefile
+distclean-xxx:
+	if [ -s src/Makefile ] ; then (cd src && ${MAKE} distclean ) ; fi
+	-@rm -f Makefile src/Makefile localdefs config.status config.log config.cache *conf.cache config.system
+	-@rm -rf autom4te*.cache
+	-@rm -f include/mpidi_ch3i_dllchan_conf.h
+	-@rm -rf $(DEPS_DIR)
+	-@rm -f TAGS
+remove-makefile:
+	rm -f Makefile
+remove-genmakefiles:
+	rm -f  Makefile
+all-redirect:
+	@(cd src && ${MAKE} all )
+	${MAKE} all-local
+
+# --------------------------------------------------------------------------
+install: install-local 
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+HEADERFILES     = $(HEADERS)
+SOURCEFILES     = $(SOURCES)
+# --------------------------------------------------------------------------
+
+# Add the step that builds the dlls.  Do this during the make 
+# step because the build step needs the src/util/createshlib script that
+# is built by the main configure step
+all-local:
+	for dir in @SUBCHANNELS@ ; do \
+	    CC="@CC@" ; export CC ; CFLAGS="@CFLAGS@" ; export CFLAGS ; \
+	    CPPFLAGS="@CPPFLAGS@" ; export CPPFLAGS ; \
+	    ABIVERSION="@ABIVERSION@" ; export ABIVERSION ; \
+	    (cd ../$$dir && ${srcdir}/../$$dir/builddll --prefix=${prefix} \
+    					 --libdir=${libdir} \
+					 --exec-prefix=${exec_prefix} \
+					 --shlibtype=@ENABLE_SHLIB@ ) ;\
+	    rc=$$? ; if [ $$rc != 0 ] ; then exit 1 ; fi ; \
+	 done
+
+distclean-local:
+	-rm -f include/mpidi_ch3i_dllchan_conf.h
+	for dir in @SUBCHANNELS@ ; do \
+	    (cd ../$$dir && $(MAKE) distclean ) ; \
+	done
+
+maintainer-clean-local:
+	-rm -f include/mpidi_ch3i_dllchan_conf.h.in
+
+install-local:
+	for dir in @SUBCHANNELS@ ; do \
+	    (cd ../$$dir && $(MAKE) install ) ; \
+	done
+
+clean-local:
+	for dir in @SUBCHANNELS@ ; do \
+	    (cd ../$$dir && $(MAKE) clean ) ; \
+	done
+
+.POSIX:
+
+FORCE_TARGET:
+

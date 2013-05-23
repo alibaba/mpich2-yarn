@@ -1,0 +1,96 @@
+# This Makefile.in created by simplemake.  Do not edit
+
+# @configure_input@
+
+# --------------------------------------------------------------------------
+all: all-redirect
+
+SHELL           = @SHELL@
+abs_builddir    = @abs_builddir@
+srcdir          = @srcdir@
+abs_srcdir      = @abs_srcdir@
+DEFS            = @DEFS@ -I. -I${srcdir}
+CPPFLAGS        = @CPPFLAGS@
+LIBS            = @LIBS@
+MAKE            = @MAKE@
+CXX             = @CXX@
+CXXFLAGS        = @CXXFLAGS@
+CXX_COMPILE     = $(CXX) $(DEFS) $(INCLUDES) $(CXXFLAGS) $(CPPFLAGS)
+CXX_LINK       = $(CXX)
+LDFLAGS     =  @LDFLAGS@ ../util/mtest.o 
+
+VPATH = .:@srcdir@
+INCLUDES = -I../../include -I${srcdir}/../../include
+
+.SUFFIXES:
+.SUFFIXES: .o .cxx 
+.cxx.o:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CXX             $<" ; \
+	else \
+	  echo $(CXX_COMPILE) -c $< ; \
+	fi
+	@$(CXX_COMPILE) -c $<
+.cxx:
+	$(CXX_COMPILE) -o $* $< $(LDFLAGS) $(LIBS)
+apply: 
+	$(ACTION) $(ACTION_INPUT)
+clean:  clean-local
+	-@rm -f *.o ${srcdir}/*.o attricx baseattrcommx fkeyvaltypex fkeyvalcommx attrtx
+	-@rm -f attricx.exe baseattrcommx.exe fkeyvaltypex.exe fkeyvalcommx.exe attrtx.exe
+	-@rm -f core core.[0-9]*
+	-@rm -f *.lo ${srcdir}/*.lo
+	-@rm -f *.irlog*
+distclean:  clean distclean-xxx remove-makefile
+distclean-xxx:
+	-@rm -f Makefile
+	-@rm -rf autom4te*.cache
+	-@rm -rf $(DEPS_DIR)
+	-@rm -f TAGS
+remove-makefile:
+	rm -f Makefile
+remove-genmakefiles:
+	rm -f  Makefile
+all-redirect: attrtx attricx baseattrcommx fkeyvalcommx fkeyvaltypex
+
+attricx: attricx.o   @MPILIBLOC@ ../util/mtest.o
+	$(CXX_LINK) $(CXXFLAGS) $(LDFLAGS) -o attricx attricx.o  ${LIBS}
+baseattrcommx: baseattrcommx.o   @MPILIBLOC@ ../util/mtest.o
+	$(CXX_LINK) $(CXXFLAGS) $(LDFLAGS) -o baseattrcommx baseattrcommx.o  ${LIBS}
+fkeyvaltypex: fkeyvaltypex.o   @MPILIBLOC@ ../util/mtest.o
+	$(CXX_LINK) $(CXXFLAGS) $(LDFLAGS) -o fkeyvaltypex fkeyvaltypex.o  ${LIBS}
+fkeyvalcommx: fkeyvalcommx.o   @MPILIBLOC@ ../util/mtest.o
+	$(CXX_LINK) $(CXXFLAGS) $(LDFLAGS) -o fkeyvalcommx fkeyvalcommx.o  ${LIBS}
+attrtx: attrtx.o   @MPILIBLOC@ ../util/mtest.o
+	$(CXX_LINK) $(CXXFLAGS) $(LDFLAGS) -o attrtx attrtx.o  ${LIBS}
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+SOURCES         =  attrtx.cxx attricx.cxx baseattrcommx.cxx fkeyvalcommx.cxx fkeyvaltypex.cxx
+HEADERFILES     = $(HEADERS)
+SOURCEFILES     = $(SOURCES)
+# --------------------------------------------------------------------------
+
+#attrerrx_SOURCES = attrerrx.cxx
+#attrerrcommx_SOURCES = attrerrcommx.cxx
+#attrerrtypex_SOURCES = attrerrtypex.cxx
+#attrorderx_SOURCES = attrorderx.cxx
+#attrordercommx_SOURCES = attrordercommx.cxx
+#attrordertypex_SOURCES = attrordertypex.cxx
+#attrorderwinx_SOURCES = attrorderwinx.cxx
+#baseattr2x_SOURCES = baseattr2x.cxx
+#baseattrwinx_SOURCES = baseattrwinx.cxx
+
+../util/mtest.o:
+	(cd ../util && $(MAKE) mtest.o)
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=@MPIEXEC@ \
+		   	-xmlfile=summary.xml
+clean-local:
+	-rm -f summary.xml
+
+.POSIX:
+
+FORCE_TARGET:
+

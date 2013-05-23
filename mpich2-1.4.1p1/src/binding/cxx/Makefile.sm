@@ -1,0 +1,21 @@
+# DO NOT EDIT
+# This file created by buildiface -nosep
+smvar_do_dependencies = ignore
+mpi_sources = mpicxx.h initcxx.cxx 
+MPICXXLIBNAME = @MPICXXLIBNAME@
+lib${MPICXXLIBNAME}_a_DIR = ROOTDIR/lib
+lib${MPICXXLIBNAME}_a_SOURCES = ${mpi_sources} 
+
+INCLUDES = -I../../include -I${top_srcdir}/src/include -I$(master_top_srcdir)/src/include 
+maintainerclean-local:
+	rm -f ${mpi_sources}
+install_INCLUDE = mpicxx.h 
+# Documentation sources
+doc_sources = 
+DOCDESTDIRS = html:www/www1,man:man/man1,latex:doc/refman
+doc_HTML_SOURCES  = ${doc_sources}
+doc_MAN_SOURCES   = ${doc_sources}
+doc_LATEX_SOURCES = ${doc_sources}
+distclean-local:
+	rm -f ../../../bin/mpicxx
+	rm -f ../../../src/include/mpicxx.h

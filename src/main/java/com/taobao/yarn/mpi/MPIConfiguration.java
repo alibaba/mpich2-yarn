@@ -22,6 +22,51 @@ public class MPIConfiguration extends YarnConfiguration {
 
   public static final String MPI_TIMEOUT = "yarn.mpi.timeout";
 
+  public static final String MPI_DOWNLOAD_RETRY = "yarn.mpi.download.retry";
+
+  public static final String MPI_CONTAINER_JAVA_OPTS_EXCEPT_MEMORY = "yarn.mpi.container.java.opts";
+  public static final String MPI_APPLICATION_JAVA_OPTS_EXCEPT_MEMORY = "yarn.mpi.application.java.opts";
+
+  public static final String MPI_CONTAINER_DOWNLOAD_SAVE = "yarn.mpi.container.download.save";
+
+  public static final String MPI_ALLOCATE_INTERVAL = "mpi.allocate.interval";
+
+  public static final String MPI_LOG_PULL_INTERVAL = "mpi.log.pull.interval";
+
+  public static final String MPI_TASK_TIMEOUT = "yarn.mpi.task.timeout";
+
+  public static final String MPI_TASK_TIMEOUT_CHECK_INTERVAL_MS = "yarn.mpi.task.timeout.check.interval";
+
+  public static final String MPI_AM_TASK_LISTENER_THREAD_COUNT = "yarn.mpi.am.task.listener.thread.count";
+
+  public static final Integer DEFAULT_MPI_AM_TASK_LISTENER_THREAD_COUNT = 5;
+
+  public static final String TASK_PING_INTERVAL = "yarn.mpi.task.ping.interval";
+
+  public static final String TASK_PING_RETRY = "yarn.mpi.task.ping.retry";
+
+  public static final String MPI_NM_STARTUP_USERDIR = "mpi.nodemanger.startup.userdir";
+
+  public static final String MPI_APPLICATION_MASTER_DEFAULT_ADDRESS = "0.0.0.0:0";
+
+  public static final int MPI_APPLICATION_WAIT_MESSAGE_EMPTY = 3000;
+
+  public static final String MPI_AM_LOG_LEVEL = "yarn.mpi.am.log.level";
+
+  public static final String DEFAULT_MPI_AM_LOG_LEVEL = "INFO";
+
+  public static final String MPI_CONTAINER_LOG_LEVEL = "yarn.mpi.container.log.level";
+
+  public static final String DEFAULT_MPI_CONTAINER_LOG_LEVEL = "INFO";
+
+  public static final String MPI_AM_LOG_SIZE = "mpi.am.log.size";
+
+  public static final long DEFAULT_MPI_AM_LOG_SIZE = Long.MAX_VALUE;
+
+  public static final String MPI_CONTAINER_LOG_SIZE = "mpi.container.log.size";
+
+  public static final long DEFAULT_MPI_CONTAINER_LOG_SIZE = Long.MAX_VALUE;
+
   public static final String[] DEFAULT_MPI_APPLICATION_CLASSPATH = {
     "$HADOOP_CONF_DIR", "$HADOOP_COMMON_HOME/share/hadoop/common/*",
     "$HADOOP_COMMON_HOME/share/hadoop/common/lib/*",

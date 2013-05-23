@@ -1,0 +1,16 @@
+<dir>
+<file name="pcontrol.c" info="1194043819"/>
+<file name="version.c" info="1194043819"/>
+<file name="getpname.c" info="1226006997"/>
+</dir>
+<data>
+<fileinfo name="pcontrol.c">
+MPID_STATE_MPI_PCONTROL MPI_Pcontrol
+</fileinfo>
+<fileinfo name="version.c">
+MPID_STATE_MPI_GET_VERSION MPI_Get_version
+</fileinfo>
+<fileinfo name="getpname.c">
+MPID_STATE_MPI_GET_PROCESSOR_NAME MPI_Get_processor_name
+</fileinfo>
+</data>

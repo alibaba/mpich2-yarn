@@ -17,7 +17,11 @@ import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 
-import com.taobao.yarn.mpi.server.Utilities;
+
+import com.taobao.yarn.mpi.MPIConfiguration;
+import com.taobao.yarn.mpi.util.Utilities;
+
+
 
 /**
  * The container allocates
@@ -36,6 +40,8 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
   private final Map<String, Integer> hostToProcNum = new HashMap<String, Integer>();
   private final Map<String, Container> hostToContainer = new HashMap<String, Container>();
 
+  private final MPIConfiguration conf;
+
   public MultiMPIProcContainersAllocator(
       AMRMProtocol resourceManager,
       int reuqestPriority,
@@ -45,21 +51,26 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
     this.requestPriority = reuqestPriority;
     this.containerMemory = containerMemory;
     this.appAttemptID = appAttemptId;
+    conf=new MPIConfiguration();
   }
 
   @Override
   public synchronized List<Container> allocateContainers(int numContainer)
       throws YarnRemoteException {
     List<Container> result = new ArrayList<Container>();
+    // Until we get our fully allocated quota, we keep on polling RM for containers
+    // Keep looping until all the containers are launched and shell script executed on them
+    // ( regardless of success/failure).
     while (numContainer > numProcessCanRun.get()) {
       LOG.info(String.format("Current requesting state: needed=%d, procVolum=%d, requested=%d, allocated=%d, requestId=%d",
           numContainer, numProcessCanRun.get(), numRequestedContainers.get(), numAllocatedContainers.get(), rmRequestID.get()));
       float progress = (float) numProcessCanRun.get() / numContainer;
-      // FIXME Hard coding sleep time
-      Utilities.sleep(1000);
+      int allocateInterval=conf.getInt(MPIConfiguration.MPI_ALLOCATE_INTERVAL, 1000);
+      Utilities.sleep(allocateInterval);
       int askCount = numContainer - numProcessCanRun.get();
       numRequestedContainers.addAndGet(askCount);
 
+      // Setup request for RM
       List<ResourceRequest> resourceReq = new ArrayList<ResourceRequest>();
       if (askCount > 0) {
         ResourceRequest containerAsk = Utilities.setupContainerAskForRM(
@@ -83,7 +94,7 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
       numAllocatedContainers.addAndGet(allocatedContainers.size());
       numProcessCanRun.addAndGet(allocatedContainers.size());
 
-      // Allocation complete, we will reducenumContainer
+      // Allocation complete, we will reduce numContainer
       if (numAllocatedContainers.get() >= numContainer) {
         for (Container allocatedContainer : allocatedContainers) {
           LOG.info("AllocatedContainer: Id=" + allocatedContainer.getId()

@@ -15,7 +15,7 @@ import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 public interface ContainersAllocator {
   /**
    * Allocate Containers
-   * @param numContainer
+   * @param numContainer the number of containers to allocate
    * @return list of allocated containers
    * @throws YarnRemoteException
    */

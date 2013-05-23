@@ -5,20 +5,28 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileStatus;
@@ -27,11 +35,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
-import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationReportRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationReportResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
@@ -46,14 +51,16 @@ import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
-import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
 import com.taobao.yarn.mpi.MPIConfiguration;
 import com.taobao.yarn.mpi.MPIConstants;
+import com.taobao.yarn.mpi.api.MPIClientProtocol;
 import com.taobao.yarn.mpi.server.ApplicationMaster;
-import com.taobao.yarn.mpi.server.Utilities;
+import com.taobao.yarn.mpi.util.InputFile;
+import com.taobao.yarn.mpi.util.MPDException;
+import com.taobao.yarn.mpi.util.Utilities;
 
 /**
  * Client for MPI application submission to YARN.
@@ -63,10 +70,10 @@ public class Client {
   private static final Log LOG = LogFactory.getLog(Client.class);
   // Configuration
   private final MPIConfiguration conf;
-  // RPC to communicate to RM
-  private final YarnRPC rpc;
   // Handle to talk to the Resource Manager/Applications Manager
   private ClientRMProtocol applicationsManager;
+  //Handle to communicate to the ApplicationMaster
+  private MPIClientProtocol mpiClient;
   // Application master specific info to register a new Application with RM/ASM
   private String appName = "MPICH2-";
   // App master priority
@@ -89,12 +96,20 @@ public class Client {
   private long clientTimeout = 24 * 60 * 60 * 1000;  // 86400000 ms, 24 hours
   // Location of the MPI application
   private String mpiApplication = "";
-  // Is the MPI application running
-  private transient boolean isRunnig = false;
+  // Is the MPI application running, we do NOT use 'volatile' for passing reference
+  private transient AtomicBoolean isRunning = new AtomicBoolean(false);
   // MPI Options
   private String mpiOptions = "";
   // Debug flag
   boolean debugFlag = false;
+  //jvm parameters
+  private String jvmOptions = "";
+  // processes per container
+  private int ppc = 1;
+  // key: FILENAME variable, value:the dfs location of the input file
+  private final ConcurrentHashMap<String, InputFile> fileToLocation = new ConcurrentHashMap<String, InputFile>();
+  // key: FILENAME variable ,value:the dfs location of the result file
+  private final ConcurrentHashMap<String, String> resultToLocation = new ConcurrentHashMap<String, String>();
 
   private enum TaskType {
     RUN, KILL
@@ -102,6 +117,7 @@ public class Client {
   private TaskType taskType = TaskType.RUN;
   private String appIdToKill;
   private ApplicationId appId;
+  private final FileSystem dfs;
 
   /**
    * @param args Command line arguments
@@ -133,11 +149,12 @@ public class Client {
 
   /**
    * Constructor, create YarnRPC
+   * @throws IOException
    */
-  public Client(MPIConfiguration conf) throws Exception  {
+  public Client(MPIConfiguration conf) throws IOException {
     // Set up the configuration and RPC
     this.conf = conf;
-    rpc = YarnRPC.create(conf);
+    dfs = FileSystem.get(conf);
   }
 
   /**
@@ -163,6 +180,7 @@ public class Client {
     containerPriority = conf.getInt(MPIConfiguration.MPI_CONTAINER_PRIORITY, 0);
     amQueue = conf.get(MPIConfiguration.MPI_QUEUE);
     clientTimeout = conf.getLong(MPIConfiguration.MPI_TIMEOUT, 24 * 60 * 60 * 1000);
+    jvmOptions = conf.get(MPIConfiguration.MPI_APPLICATION_JAVA_OPTS_EXCEPT_MEMORY, "");
   }
 
   /**
@@ -170,8 +188,10 @@ public class Client {
    * @param args Parsed command line options
    * @return Whether the init was successful to run the client
    * @throws ParseException
+   * @throws IOException
    */
-  public boolean init(String[] args) throws ParseException {
+  @SuppressWarnings("static-access")
+  public boolean init(String[] args) throws ParseException, IOException {
 
     reloadConfiguration();
 
@@ -188,10 +208,34 @@ public class Client {
     opts.addOption("k", "kill", true, "Running MPI Application id");
     opts.addOption("d", "debug", false, "Dump out debug information");
     opts.addOption("h", "help", false, "Print usage");
+    opts.addOption("ppc", "processes-per-container", true, "processes per container,take effect when all containers download the same file");
+    //support -D for the input file
+    Option property = OptionBuilder.withArgName("property=value")
+        .hasArgs(2)
+        .withValueSeparator()
+        .withDescription("dfs location,representing the source data of MPI")
+        .create("D");
+    opts.addOption(property);
+
+    // support -S for whether all containers share the same input file
+    Option downSame = OptionBuilder.withArgName("property=value")
+        .hasArgs(2)
+        .withValueSeparator()
+        .withDescription("Do all containers download the same file?")
+        .create("S");
+    opts.addOption(downSame);
+
+    //support -O for the mpi result
+    Option output = OptionBuilder.withArgName("property=value")
+        .hasArgs(2)
+        .withValueSeparator()
+        .withDescription("dfs location,representing the mpi result")
+        .create("O");
+    opts.addOption(output);
 
     CommandLine cliParser = new GnuParser().parse(opts, args);
     // empty commandline
-    if (cliParser.getOptions().length == 0) {
+    if (cliParser.getOptions().length == 0  || cliParser.hasOption("help")) {
       printUsage(opts);
       return false;
     }
@@ -256,15 +300,65 @@ public class Client {
       debugFlag = true;
     }
 
-    if (args.length == 0 || cliParser.hasOption("help")) {
-      printUsage(opts);
-      return false;
+    if (cliParser.hasOption("processes-per-container")){
+      ppc = Integer.parseInt(cliParser.getOptionValue("processes-per-container", "1"));
     }
+
+    parseInput(cliParser);
+
+    parseOutput(cliParser);
 
     appMasterJar = JobConf.findContainingJar(ApplicationMaster.class);
     LOG.info("Application Master's jar is " + appMasterJar);
 
     return true;
+  }
+
+  /**
+   * @param cliParser
+   * @throws IOException
+   */
+  @SuppressWarnings("unchecked")
+  private void parseOutput(CommandLine cliParser) throws IOException {
+    Properties outs = cliParser.getOptionProperties("O");
+    Enumeration<String> fileNames = (Enumeration<String>)outs.propertyNames();
+    while (fileNames.hasMoreElements()) {
+      String name = fileNames.nextElement();
+      String destination = outs.getProperty(name);
+      Path path = new Path(destination);
+      if (!dfs.isDirectory(path) && dfs.exists(path)) {
+        throw new MPDException(String.format("file %s exists", destination));
+      }
+      resultToLocation.put(name, destination);
+    }
+  }
+
+  /**
+   * @param cliParser
+   */
+  @SuppressWarnings("unchecked")
+  private void parseInput(CommandLine cliParser) {
+    Map<String, Boolean> mapSame = new HashMap<String, Boolean>();
+    Properties files = cliParser.getOptionProperties("D");
+    Properties sameFiles = cliParser.getOptionProperties("S");
+    Enumeration<String> fileNames = (Enumeration<String>)files.propertyNames();
+    Enumeration<String> sameFileNames = (Enumeration<String>)sameFiles.propertyNames();
+    while (sameFileNames.hasMoreElements()) {
+      String name = sameFileNames.nextElement();
+      mapSame.put(name, Boolean.valueOf(sameFiles.getProperty(name)));
+    }
+
+    while (fileNames.hasMoreElements()) {
+      String fileName = fileNames.nextElement();
+      InputFile input = new InputFile();
+      input.setLocation(files.getProperty(fileName));
+      if (mapSame.containsKey(fileName)) {
+        input.setSame(mapSame.get(fileName));
+      }else {
+        input.setSame(false);
+      }
+      fileToLocation.put(fileName, input);
+    }
   }
 
   /**
@@ -275,7 +369,8 @@ public class Client {
   public boolean run() throws IOException {
     LOG.info("Starting Client");
     // Connect to ResourceManager
-    connectToASM();
+    applicationsManager = Utilities.connectToASM(conf);
+
     assert(applicationsManager != null);
 
     // Get a new application id
@@ -331,14 +426,12 @@ public class Client {
     LOG.info("Copy App Master jar from local filesystem and add to local environment");
     // Copy the application master jar to the filesystem
     // Create a local resource to point to the destination jar path
-    FileSystem fs = FileSystem.get(conf);
     Path appJarSrc = new Path(appMasterJar);
+    Path appJarDst = Utilities.getAppFile(dfs, appName, appId, "AppMaster.jar");
     LOG.info("Source path: " + appJarSrc.toString());
-    String pathSuffix = appName + "/" + appId.getId() + "/AppMaster.jar";
-    Path appJarDst = new Path(fs.getHomeDirectory(), pathSuffix);
     LOG.info("Destination path: " + appJarDst.toString());
-    fs.copyFromLocalFile(false, true, appJarSrc, appJarDst);
-    FileStatus appJarDestStatus = fs.getFileStatus(appJarDst);
+    dfs.copyFromLocalFile(false, true, appJarSrc, appJarDst);
+    FileStatus appJarDestStatus = dfs.getFileStatus(appJarDst);
 
     // set local resources for the application master
     Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
@@ -360,10 +453,11 @@ public class Client {
     LOG.info("Copy MPI application from local filesystem to remote.");
     assert(!mpiApplication.isEmpty());
     Path mpiAppSrc = new Path(mpiApplication);
-    String mpiAppSuffix = appName + "/" + appId.getId() + "/MPIExec";
-    Path mpiAppDst = new Path(fs.getHomeDirectory(), mpiAppSuffix);
-    fs.copyFromLocalFile(false, true, mpiAppSrc, mpiAppDst);
-    FileStatus mpiAppFileStatus = fs.getFileStatus(mpiAppDst);
+    Path mpiAppDst = Utilities.getAppFile(dfs, appName, appId, "MPIExec");
+    LOG.info("Source path: " + mpiAppSrc.toString());
+    LOG.info("Destination path: " + mpiAppDst.toString());
+    dfs.copyFromLocalFile(false, true, mpiAppSrc, mpiAppDst);
+    FileStatus mpiAppFileStatus = dfs.getFileStatus(mpiAppDst);
 
     // Set the env variables to be setup in the env where the application master will be run
     LOG.info("Set the environment for the application master and mpi application");
@@ -379,6 +473,31 @@ public class Client {
     env.put(MPIConstants.APPJARLEN, Long.toString(appJarDestStatus.getLen()));
     if (!mpiOptions.isEmpty()) {
       env.put(MPIConstants.MPIOPTIONS, mpiOptions);
+    }
+    env.put(MPIConstants.PROCESSESPERCONTAINER,String.valueOf(ppc));
+    Set<String> keyFiles = fileToLocation.keySet();
+    StringBuilder names = new StringBuilder(50);
+    if (keyFiles != null && keyFiles.size() > 0) {
+      Iterator<String> itKeys = keyFiles.iterator();
+      while (itKeys.hasNext()) {
+        String key = itKeys.next();
+        //TODO hard coding with '@'
+        names.append(key).append("@");
+        env.put(key, fileToLocation.get(key).toString());
+      }
+      env.put(MPIConstants.MPIINPUTS, names.substring(0, names.length()-1).toString());
+    }
+
+    Set<String> keyResults = resultToLocation.keySet();
+    StringBuilder resultNames = new StringBuilder(50);
+    if (keyResults != null && keyResults.size() > 0) {
+      Iterator<String> itKeys = keyResults.iterator();
+      while (itKeys.hasNext()) {
+        String key = itKeys.next();
+        resultNames.append(key).append("@");
+        env.put(key, resultToLocation.get(key).toString());
+      }
+      env.put(MPIConstants.MPIOUTPUTS, resultNames.substring(0,resultNames.length()-1).toString());
     }
 
     // Add AppMaster.jar location to classpath. At some point we should not be
@@ -407,6 +526,15 @@ public class Client {
     vargs.add("${JAVA_HOME}" + "/bin/java");
     // Set Xmx based on am memory size
     vargs.add("-Xmx" + amMemory + "m");
+    // log are specified by the nodeManager's container-log4j.properties and client can specify the MPI_AM_LOG_LEVEL and MPI_AM_LOG_SIZE
+    String logLevel = conf.get(MPIConfiguration.MPI_AM_LOG_LEVEL, MPIConfiguration.DEFAULT_MPI_AM_LOG_LEVEL);
+    long logSize = conf.getLong(MPIConfiguration.MPI_AM_LOG_SIZE, MPIConfiguration.DEFAULT_MPI_AM_LOG_SIZE);
+    Utilities.addLog4jSystemProperties(logLevel, logSize, vargs);
+    //set java opts except memory
+    if (!StringUtils.isBlank(jvmOptions)) {
+      vargs.add(jvmOptions);
+    }
+
     // Set class name
     vargs.add("com.taobao.yarn.mpi.server.ApplicationMaster");
     // Set params for Application Master
@@ -453,12 +581,15 @@ public class Client {
     // Submit the application to the applications manager
     // Ignore the response as either a valid response object is returned on success
     // or an exception thrown to denote some form of a failure
-    LOG.info("Submitting application to ASM");
-    isRunnig = true;
-    SubmitApplicationResponse submitResp = applicationsManager.submitApplication(appRequest);
-    LOG.info("Submisstion result: " + submitResp.toString());
-
-    // TODO Try submitting the same request again. app submission failure?
+    try {
+      LOG.info("Submitting application to ASM");
+      SubmitApplicationResponse submitResp = applicationsManager.submitApplication(appRequest);
+      isRunning.set(submitResp != null);
+      LOG.info("Submisstion result: " + isRunning);
+    } catch (YarnRemoteException e) {
+      LOG.error("Submission failure.", e);
+      return false;
+    }
 
     // Monitor the application
     return monitorApplication();
@@ -469,50 +600,38 @@ public class Client {
    * Kill application if time expires.
    * @param appId Application Id of application to be monitored
    * @return true if application completed successfully
-   * @throws YarnRemoteException
+   * @throws IOException
    */
-  private boolean monitorApplication() throws YarnRemoteException {
+  private boolean monitorApplication() throws IOException {
 
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        if (isRunnig) {
-          try {
-            killApplication(appId);
-          } catch (YarnRemoteException e) {
-            LOG.error("Error killing application: ", e);
-          }
-        }
-      }
-    });
-
+    Runtime.getRuntime().addShutdownHook(
+        new KillRunningAppHook(isRunning, applicationsManager, appId));
     while (true) {
-      // FIXME hard coding sleep time
-      Utilities.sleep(1000);
-
       // Get application report for the appId we are interested in
-      GetApplicationReportRequest reportRequest = Records.newRecord(GetApplicationReportRequest.class);
-      reportRequest.setApplicationId(appId);
-      GetApplicationReportResponse reportResponse = applicationsManager.getApplicationReport(reportRequest);
-      ApplicationReport report = reportResponse.getApplicationReport();
-
-      LOG.info("Got application report from ASM for"
-          + ", appId=" + appId.getId()
-          + ", clientToken=" + report.getClientToken()
-          + ", appDiagnostics=" + report.getDiagnostics()
-          + ", appMasterHost=" + report.getHost()
-          + ", appQueue=" + report.getQueue()
-          + ", appMasterRpcPort=" + report.getRpcPort()
-          + ", appStartTime=" + report.getStartTime()
-          + ", yarnAppState=" + report.getYarnApplicationState().toString()
-          + ", distributedFinalState=" + report.getFinalApplicationStatus().toString()
-          + ", appTrackingUrl=" + report.getTrackingUrl()
-          + ", appUser=" + report.getUser());
+      ApplicationReport report = Utilities.getApplicationReport(appId, applicationsManager);
+      assert(report != null);
+      if (mpiClient == null && isRunning.get() == true) {
+        LOG.info("Got application report from ASM for"
+            + ", appId=" + appId.getId()
+            + ", clientToken=" + report.getClientToken()
+            + ", appDiagnostics=" + report.getDiagnostics()
+            + ", appMasterHost=" + report.getHost()
+            + ", rpcPort:" + report.getRpcPort()
+            + ", appQueue=" + report.getQueue()
+            + ", appMasterRpcPort=" + report.getRpcPort()
+            + ", appStartTime=" + report.getStartTime()
+            + ", yarnAppState=" + report.getYarnApplicationState().toString()
+            + ", distributedFinalState=" + report.getFinalApplicationStatus().toString()
+            + ", appTrackingUrl=" + report.getTrackingUrl()
+            + ", appUser=" + report.getUser());
+        mpiClient = Utilities.connectToAM(conf, report.getHost(), report.getRpcPort());
+      }
 
       YarnApplicationState state = report.getYarnApplicationState();
       FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
       if (YarnApplicationState.FINISHED == state) {
-        isRunnig = false;
+        mpiClient = null;
+        isRunning.set(false);
         if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
           LOG.info("Application has completed successfully. Breaking monitoring loop");
           return true;
@@ -524,7 +643,8 @@ public class Client {
         }
       } else if (YarnApplicationState.KILLED == state
           || YarnApplicationState.FAILED == state) {
-        isRunnig = false;
+        mpiClient = null;
+        isRunning.set(false);
         LOG.info("Application did not finish."
             + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString()
             + ". Breaking monitoring loop");
@@ -532,43 +652,25 @@ public class Client {
       }
 
       if (System.currentTimeMillis() > (clientStartTime + clientTimeout)) {
+        mpiClient = null;
         LOG.info("Reached client specified timeout for application. Killing application");
-        killApplication(appId);
-        isRunnig = false;
+        Utilities.killApplication(applicationsManager, appId);
+        isRunning.set(false);
         return false;
       }
+
+      if (mpiClient != null) {
+        String[] messages = mpiClient.popAllMPIMessages();
+        if (messages != null && messages.length > 0) {
+          for (String message : messages) {
+            LOG.info(message);
+          }
+        }
+      }
+      // pulling log interval,the default is 1000ms
+      int logInterval = conf.getInt(MPIConfiguration.MPI_LOG_PULL_INTERVAL, 1000);
+      Utilities.sleep(logInterval);
     }  // end while
-  }
-
-  /**
-   * Kill a submitted application by sending a call to the ASM
-   * @param appId Application Id to be killed.
-   * @throws YarnRemoteException
-   */
-  private void killApplication(ApplicationId appId) throws YarnRemoteException {
-    KillApplicationRequest request = Records.newRecord(KillApplicationRequest.class);
-    // TODO clarify whether multiple jobs with the same app id can be submitted
-    // and be running at the same time. If yes, can we kill a particular attempt only?
-    request.setApplicationId(appId);
-    LOG.info("Killing appliation with id: " + appId.toString());
-    // Response can be ignored as it is non-null on success or throws an exception in case of failures
-    applicationsManager.forceKillApplication(request);
-  }
-
-  /**
-   * Connect to the Resource Manager/Applications Manager
-   * @return Handle to communicate with the ASM
-   * @throws IOException
-   */
-  private void connectToASM() throws IOException {
-    MPIConfiguration yarnConf = new MPIConfiguration(conf);
-    InetSocketAddress rmAddress = yarnConf.getSocketAddr(
-        MPIConfiguration.RM_ADDRESS,
-        MPIConfiguration.DEFAULT_RM_ADDRESS,
-        MPIConfiguration.DEFAULT_RM_PORT);
-    LOG.info("Connecting to ResourceManager at " + rmAddress);
-    applicationsManager = ((ClientRMProtocol) rpc.getProxy(
-        ClientRMProtocol.class, rmAddress, conf));
   }
 
   /**
@@ -634,11 +736,11 @@ public class Client {
    */
   public boolean kill() {
     try {
-      connectToASM();
+      applicationsManager = Utilities.connectToASM(conf);
       ApplicationId appId = parseAppId(appIdToKill);
       if (null == appId)
         return false;
-      killApplication(appId);
+      Utilities.killApplication(applicationsManager, appId);
     } catch (YarnRemoteException e) {
       LOG.error("Killing " + appIdToKill + " failed", e);
       return false;

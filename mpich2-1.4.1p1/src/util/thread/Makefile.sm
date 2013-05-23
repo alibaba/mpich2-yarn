@@ -1,0 +1,3 @@
+lib${MPILIBNAME}_a_SOURCES = mpiu_thread.c
+INCLUDES = -I../../include -I${top_srcdir}/src/include
+

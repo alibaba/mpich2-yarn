@@ -1,0 +1,82 @@
+<dir>
+<file name="alloc_mem.c" info="1274381077"/>
+<file name="win_free.c" info="1298915636"/>
+<file name="accumulate.c" info="1289055764"/>
+<file name="win_set_name.c" info="1194043819"/>
+<file name="win_create.c" info="1298915636"/>
+<file name="win_get_group.c" info="1289055764"/>
+<file name="win_wait.c" info="1274381077"/>
+<file name="win_complete.c" info="1274381077"/>
+<file name="win_post.c" info="1274381077"/>
+<file name="win_unlock.c" info="1298915636"/>
+<file name="win_test.c" info="1274381077"/>
+<file name="rma.h" info="1210870285"/>
+<file name="win_get_name.c" info="1194043819"/>
+<file name="get.c" info="1289055764"/>
+<file name="put.c" info="1289055764"/>
+<file name="winutil.c" info="1285685384"/>
+<file name="win_lock.c" info="1298915636"/>
+<file name="win_fence.c" info="1274381077"/>
+<file name="free_mem.c" info="1274381077"/>
+<file name="win_start.c" info="1274381077"/>
+</dir>
+<data>
+<fileinfo name="alloc_mem.c">
+MPID_STATE_MPI_ALLOC_MEM MPI_Alloc_mem
+</fileinfo>
+<fileinfo name="win_free.c">
+MPID_STATE_MPI_WIN_FREE MPI_Win_free
+</fileinfo>
+<fileinfo name="accumulate.c">
+MPID_STATE_MPI_ACCUMULATE MPI_Accumulate
+</fileinfo>
+<fileinfo name="win_set_name.c">
+MPID_STATE_MPI_WIN_SET_NAME MPI_Win_set_name
+</fileinfo>
+<fileinfo name="win_create.c">
+MPID_STATE_MPI_WIN_CREATE MPI_Win_create
+</fileinfo>
+<fileinfo name="win_get_group.c">
+MPID_STATE_MPI_WIN_GET_GROUP MPI_Win_get_group
+</fileinfo>
+<fileinfo name="win_wait.c">
+MPID_STATE_MPI_WIN_WAIT MPI_Win_wait
+</fileinfo>
+<fileinfo name="win_complete.c">
+MPID_STATE_MPI_WIN_COMPLETE MPI_Win_complete
+</fileinfo>
+<fileinfo name="win_post.c">
+MPID_STATE_MPI_WIN_POST MPI_Win_post
+</fileinfo>
+<fileinfo name="win_unlock.c">
+MPID_STATE_MPI_WIN_UNLOCK MPI_Win_unlock
+</fileinfo>
+<fileinfo name="win_test.c">
+MPID_STATE_MPI_WIN_TEST MPI_Win_test
+</fileinfo>
+<fileinfo name="rma.h">
+</fileinfo>
+<fileinfo name="win_get_name.c">
+MPID_STATE_MPI_WIN_GET_NAME MPI_Win_get_name
+</fileinfo>
+<fileinfo name="get.c">
+MPID_STATE_MPI_GET MPI_Get
+</fileinfo>
+<fileinfo name="put.c">
+MPID_STATE_MPI_PUT MPI_Put
+</fileinfo>
+<fileinfo name="winutil.c">
+</fileinfo>
+<fileinfo name="win_lock.c">
+MPID_STATE_MPI_WIN_LOCK MPI_Win_lock
+</fileinfo>
+<fileinfo name="win_fence.c">
+MPID_STATE_MPI_WIN_FENCE MPI_Win_fence
+</fileinfo>
+<fileinfo name="free_mem.c">
+MPID_STATE_MPI_FREE_MEM MPI_Free_mem
+</fileinfo>
+<fileinfo name="win_start.c">
+MPID_STATE_MPI_WIN_START MPI_Win_start
+</fileinfo>
+</data>

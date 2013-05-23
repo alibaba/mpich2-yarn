@@ -1,0 +1,26 @@
+# This Makefile.sm generated automatically by f77tof90
+# from test/mpi/f77/attr/Makefile.sm.  DO NOT EDIT
+FCINCLUDES = -I.
+smvar_do_sharedlibs = 0
+LDADD = ../util/mtestf90.o 
+DEPADD = @MPILIBLOC@ ../util/mtestf90.o
+
+FCHEADERS = attraints.h
+
+baseattrf90_SOURCES    = baseattrf90.f90
+baseattr2f90_SOURCES    = baseattr2f90.f90
+commattrf90_SOURCES    = commattrf90.f90
+commattr2f90_SOURCES   = commattr2f90.f90
+commattr3f90_SOURCES   = commattr3f90.f90
+typeattrf90_SOURCES    = typeattrf90.f90
+typeattr2f90_SOURCES   = typeattr2f90.f90
+typeattr3f90_SOURCES   = typeattr3f90.f90
+
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=$(bindir)/mpiexec \
+		   	-xmlfile=summary.xml
+
+../util/mtestf90.o: 
+	(cd ../util && $(MAKE) mtestf90.o)
+fandcattrf90_SOURCES = fandcattrf90.f90 fandcattrc.c

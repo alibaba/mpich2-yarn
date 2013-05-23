@@ -6,6 +6,9 @@
   <version>1.0-SNAPSHOT</version>
   <name>mpich2-yarn</name>
   <url>https://github.com/clarkyzl/mpich2-yarn</url>
+  <properties>
+    <skipMpi>true</skipMpi>
+  </properties>
   <build>
     <plugins>
       <plugin>
@@ -13,11 +16,85 @@
         <artifactId>maven-jar-plugin</artifactId>
         <configuration>
           <archive>
-            <manifest>
-              <mainClass>com.taobao.yarn.mpi.client.Client</mainClass>
-            </manifest>
+            <manifestFile>src/main/resources/META-INF/MANIFEST.MF</manifestFile>
           </archive>
         </configuration>
+      </plugin>
+       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>1.6</version>
+        <executions>
+          <execution>
+            <id>build_mpich2</id>
+            <phase>package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <echo file="target/build_mpi.sh">
+                    echo "SKIPMPI:$SKIPMPI"
+                    if [ $SKIPMPI != "true" ]; then
+                      MPICH2_DIR=mpich2-1.4.1p1
+                      cd $MPICH2_DIR
+                      ./configure --prefix=`pwd`/../target/mpich2-install  --with-pm=smpd --with-pmi=smpd --disable-f77 --disable-fc
+                      if [ $? = 0 ]; then
+                        make
+                        if [ $? = 0 ]; then
+                          make install
+                          if [ $? = 0 ]; then
+                            tar -zcvf `pwd`/../target/mpich2-install.tar.gz `pwd`/../target/mpich2-install
+                          fi
+                        fi
+                      fi
+                      make distclean
+                      rm -fr ./bin
+                      rm -fr ./include
+                      rm -fr ./lib
+                      rm -fr ./share
+                      rm -f ./.mpich2
+                      rm -f ./src/mpe2/configure.lineno
+                      rm -f ./src/mpe2/include/mpe_graphics.h
+                      rm -fr ./src/mpe2/lib
+                      rm -f ./src/mpe2/src/callstack/bin/bt2line
+                      rm -f ./src/mpe2/src/callstack/include/mpe_callstack.h
+                      rm -f ./src/mpe2/src/logging/include/clog_inttypes.h
+                      rm -f ./src/mpe2/src/logging/include/mpe_log_thread.h
+                      rm -f ./src/mpe2/src/logging/include/mpi_null.h
+                      rm -fr ./src/mpe2/src/slog2sdk/share
+                      rm -fr ./src/mpe2/src/slog2sdk/trace_rlog/lib
+                      rm -fr ./src/mpe2/src/slog2sdk/trace_rlog/share
+                      rm -f ./src/mpe2/src/slog2sdk/awt_color.jar
+                      rm -f ./src/mpi/romio/adio/Makefile
+                      rm -f ./src/mpi/romio/adio/ad_zoidfs/Makefile
+                      rm -f ./src/mpi/romio/common/dataloop/Makefile
+                      rm -f ./src/mpi/romio/config.system
+                      rm -f ./src/mpi/romio/configure.lineno
+                      rm -f ./src/pmi/smpd/configure.lineno
+                      rm -f ./src/pm/smpd/configure.lineno
+                      rm -f ./src/pm/smpd/sock/configure.lineno
+                      rm -f ./src/pm/smpd/sock/poll/configure.lineno
+                      rm -f ./src/nameserv/test/Makefile
+                      rm -f ./src/mpl/_configs.sed
+                      rm -f ./src/mpl/include/mplconfig.h
+                      rm -f ./src/mpid/ch3/configure.lineno
+                      rm -f ./src/mpid/ch3/channels/nemesis/configure.lineno
+                      rm -f ./src/mpid/ch3/include/mpid_thread.h
+                      rm -f ./src/mpid/ch3/src/mpid_thread.c
+                      rm -f ./src/mpe2/src/graphics/config.log
+                    else
+                      echo "sikp mpi build"
+                    fi
+                </echo>
+                <exec executable="sh" dir="${basedir}" failonerror="true">
+                  <arg line="target/build_mpi.sh"/>
+                  <env key="SKIPMPI" value="${skipMpi}"/>
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
@@ -31,22 +108,22 @@
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
-      <version>2.0.1-alpha</version>
+      <version>0.23.4</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-yarn-api</artifactId>
-      <version>2.0.1-alpha</version>
+      <version>0.23.4</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-yarn-common</artifactId>
-      <version>2.0.1-alpha</version>
+      <version>0.23.4</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-mapreduce-client-core</artifactId>
-      <version>2.0.1-alpha</version>
+      <version>0.23.4</version>
     </dependency>
   </dependencies>
   <description>Running MPICH2 on Yarn</description>

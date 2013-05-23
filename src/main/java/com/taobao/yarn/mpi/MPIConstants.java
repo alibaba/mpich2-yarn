@@ -43,4 +43,34 @@ public class MPIConstants {
    * Used to validate the local resource.
    */
   public static final String APPJARLEN = "APPJARLEN";
+
+  /**
+   * Environment key name pointing to the container's data location
+   */
+  public static final String CONTAININPUT = "CONTAININPUT";
+
+  public static final String CONTAINOUTPUT = "CONTAINOUTPUT";
+
+  /**
+   * Environment key name pointing to the appAttemptID
+   */
+  public static final String APPATTEMPTID = "APPATTEMPTID";
+
+  /**
+   * the prefix of the input file
+   */
+  public static final String MPIINPUTS = "MPIINPUTS";
+
+  /**
+   * the prefix of the mpi result
+   */
+  public static final String MPIOUTPUTS = "MPIOUTPUTS";
+
+  /**
+   * process per container
+   */
+  public static final String PROCESSESPERCONTAINER = "PROCESSESPERCONTAINER";
+
+  public static final int MAX_LINE_LOGS = 200;
+
 }

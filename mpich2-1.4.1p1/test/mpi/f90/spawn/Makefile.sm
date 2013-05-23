@@ -1,0 +1,23 @@
+# This Makefile.sm generated automatically by f77tof90
+# from test/mpi/f77/spawn/Makefile.sm.  DO NOT EDIT
+FCINCLUDES = -I. 
+LDADD = ../util/mtestf90.o 
+DEPADD = @MPILIBLOC@ ../util/mtestf90.o
+spawnargvf90_LDADD = @FC_GETARG_LIBS@
+spawnmultf90_LDADD = @FC_GETARG_LIBS@
+smvar_do_sharedlibs = 0
+
+namepubf90_SOURCES = namepubf90.f90
+spawnf90_SOURCES = spawnf90.f90
+spawnargvf90_SOURCES = spawnargvf90.f90
+spawnmultf90_SOURCES = spawnmultf90.f90
+spawnmult2f90_SOURCES = spawnmult2f90.f90
+connaccf90_SOURCES = connaccf90.f90
+
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=$(bindir)/mpiexec \
+		   	-xmlfile=summary.xml
+
+../util/mtestf90.o: 
+	(cd ../util && $(MAKE) mtestf90.o)

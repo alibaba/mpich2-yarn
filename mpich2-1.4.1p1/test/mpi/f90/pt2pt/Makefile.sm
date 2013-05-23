@@ -1,0 +1,16 @@
+# This Makefile.sm generated automatically by f77tof90
+# from test/mpi/f77/pt2pt/Makefile.sm.  DO NOT EDIT
+FCINCLUDES = -I.
+LDADD = ../util/mtestf90.o 
+DEPADD = @MPILIBLOC@ ../util/mtestf90.o
+smvar_do_sharedlibs = 0
+
+statusesf90_SOURCES = statusesf90.f90
+greqf90_SOURCES     = greqf90.f90 dummyf90.f90
+
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=$(bindir)/mpiexec \
+		   	-xmlfile=summary.xml
+../util/mtestf90.o: 
+	(cd ../util && $(MAKE) mtestf90.o)

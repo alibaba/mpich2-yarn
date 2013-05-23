@@ -1,0 +1,45 @@
+<dir>
+<file name="newmad_probe.c" info="1308211334"/>
+<file name="newmad_extended_interface.h" info="1308211225"/>
+<file name="newmad_send.c" info="1308211225"/>
+<file name="newmad_init.c" info="1308211225"/>
+<file name="newmad_impl.h" info="1308211225"/>
+<file name="newmad_finalize.c" info="1308211225"/>
+<file name="newmad_poll.c" info="1308211225"/>
+<file name="newmad_cancel.c" info="1308211225"/>
+<file name="newmad_alloc.c" info="1308211225"/>
+<file name="newmad_test.c" info="1308211225"/>
+<file name="newmad_register.c" info="1308211225"/>
+</dir>
+<data>
+<fileinfo name="newmad_probe.c">
+</fileinfo>
+<fileinfo name="newmad_extended_interface.h">
+</fileinfo>
+<fileinfo name="newmad_send.c">
+MPID_STATE_MPID_NEM_NEWMAD_ISENDCONTIG MPID_nem_newmad_iSendContig
+MPID_STATE_MPID_NEM_NEWMAD_ISTARTCONTIGMSG MPID_nem_newmad_iStartContigMsg
+MPID_STATE_MPID_NEM_NEWMAD_SENDNONCONTIGMSG MPID_nem_newmad_SendNoncontig
+MPID_STATE_MPID_NEM_NEWMAD_DIRECTSEND MPID_nem_newmad_directSend
+MPID_STATE_MPID_NEM_NEWMAD_DIRECTSSEND MPID_nem_newmad_directSsend
+MPID_STATE_MPID_NEM_NEWMAD_PROCESS_SDTYPE MPID_nem_newmad_process_sdtype
+</fileinfo>
+<fileinfo name="newmad_init.c">
+</fileinfo>
+<fileinfo name="newmad_impl.h">
+</fileinfo>
+<fileinfo name="newmad_finalize.c">
+</fileinfo>
+<fileinfo name="newmad_poll.c">
+MPID_STATE_MPID_NEM_NEWMAD_DIRECTRECV MPID_nem_newmad_directRecv
+MPID_STATE_MPID_NEM_NEWMAD_PROCESS_RDTYPE MPID_nem_newmad_process_rdtype
+</fileinfo>
+<fileinfo name="newmad_cancel.c">
+</fileinfo>
+<fileinfo name="newmad_alloc.c">
+</fileinfo>
+<fileinfo name="newmad_test.c">
+</fileinfo>
+<fileinfo name="newmad_register.c">
+</fileinfo>
+</data>

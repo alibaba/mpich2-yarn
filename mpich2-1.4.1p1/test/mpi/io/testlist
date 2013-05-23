@@ -1,0 +1,10 @@
+rdwrord 4
+rdwrzero 4
+getextent 2
+setinfo 4
+setviewcur 4
+i_noncontig 2
+async 4
+async_any 4
+userioerr 1
+resized 1

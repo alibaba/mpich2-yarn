@@ -1,0 +1,85 @@
+# This Makefile.in created by simplemake.  Do not edit
+
+# @configure_input@
+
+# --------------------------------------------------------------------------
+all: all-redirect
+
+SHELL           = @SHELL@
+abs_builddir    = @abs_builddir@
+srcdir          = @srcdir@
+abs_srcdir      = @abs_srcdir@
+top_srcdir      = @top_srcdir@
+DEFS            = @DEFS@ -I. -I${srcdir}
+CPPFLAGS        = @CPPFLAGS@
+LIBS            = @LIBS@
+MAKE            = @MAKE@
+CXX             = @CXX@
+CXXFLAGS        = @CXXFLAGS@
+CXX_COMPILE     = $(CXX) $(DEFS) $(INCLUDES) $(CXXFLAGS) $(CPPFLAGS)
+CXX_LINK       = $(CXX)
+LDFLAGS     =  @LDFLAGS@ ../util/mtest.o 
+
+VPATH = .:@srcdir@
+INCLUDES = -I../../include -I${top_srcdir}/include
+
+.SUFFIXES:
+.SUFFIXES: .o .cxx 
+.cxx.o:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CXX             $<" ; \
+	else \
+	  echo $(CXX_COMPILE) -c $< ; \
+	fi
+	@$(CXX_COMPILE) -c $<
+.cxx:
+	$(CXX_COMPILE) -o $* $< $(LDFLAGS) $(LIBS)
+apply: 
+	$(ACTION) $(ACTION_INPUT)
+clean: 
+	-@rm -f *.o ${srcdir}/*.o commcallx
+	-@rm -f commcallx.exe
+	-@rm -f core core.[0-9]*
+	-@rm -f *.lo ${srcdir}/*.lo
+	-@rm -f *.irlog*
+distclean:  clean distclean-xxx remove-makefile
+distclean-xxx:
+	-@rm -f Makefile
+	-@rm -rf autom4te*.cache
+	-@rm -rf $(DEPS_DIR)
+	-@rm -f TAGS
+remove-makefile:
+	rm -f Makefile
+remove-genmakefiles:
+	rm -f  Makefile
+all-redirect: commcallx
+
+commcallx: commcallx.o   @MPILIBLOC@ ../util/mtest.o
+	$(CXX_LINK) $(CXXFLAGS) $(LDFLAGS) -o commcallx commcallx.o  ${LIBS}
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+SOURCES         =  commcallx.cxx
+HEADERFILES     = $(HEADERS)
+SOURCEFILES     = $(SOURCES)
+# --------------------------------------------------------------------------
+
+#adderr_SOURCES = adderr.c
+#errstring_SOURCES = errstring.c
+#errcode_SOURCES = errcode.c errmsg.c
+#errring_SOURCES = errring.c
+#errfatal_SOURCES = errfatal.c
+
+
+../util/mtest.o: 
+	(cd ../util && make mtest.o)
+
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=@MPIEXEC@ \
+		   	-xmlfile=summary.xml
+
+.POSIX:
+
+FORCE_TARGET:
+

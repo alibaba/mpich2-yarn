@@ -1,0 +1,45 @@
+# This Makefile.sm generated automatically by f77tof90
+# from test/mpi/f77/rma/Makefile.sm.  DO NOT EDIT
+FCINCLUDES = -I. -I../attr
+DEPADD = @MPILIBLOC@ ../util/mtestf90.o
+smvar_do_sharedlibs = 0
+
+FCHEADERS = addsize.h
+
+# allocmem_SOURCES = allocmem.f90
+winscale1f90_SOURCES = winscale1f90.f90
+winscale1f90_LDADD   = ../util/mtestf90.o
+winscale2f90_SOURCES = winscale2f90.f90
+winscale2f90_LDADD   = ../util/mtestf90.o
+winfencef90_SOURCES  = winfencef90.f90
+winfencef90_LDADD    = ../util/mtestf90.o
+wingetf90_SOURCES    = wingetf90.f90
+wingetf90_LDADD      = ../util/mtestf90.o
+winerrf90_SOURCES    = winerrf90.f90
+winerrf90_LDADD      = ../util/mtestf90.o
+winnamef90_SOURCES   = winnamef90.f90
+winnamef90_LDADD     = ../util/mtestf90.o
+wingroupf90_SOURCES  = wingroupf90.f90
+wingroupf90_LDADD    = ../util/mtestf90.o
+winaccf90_SOURCES    = winaccf90.f90
+winaccf90_LDADD      = ../util/mtestf90.o
+
+c2f2cwinf90_SOURCES = c2f2cwinf90.f90 c2f902cwin.c
+c2f2cwinf90_LDADD   = ../util/mtestf90.o 
+
+baseattrwinf90_SOURCES  = baseattrwinf90.f90
+baseattrwinf90_LDADD    = ../util/mtestf90.o
+winattrf90_SOURCES      = winattrf90.f90
+winattrf90_LDADD        = ../util/mtestf90.o
+winattr2f90_SOURCES     = winattr2f90.f90
+winattr2f90_LDADD       = ../util/mtestf90.o
+
+# bindir may be used in MPIEXEC, so make sure it is defined
+BINDIR=${bindir}
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=@MPIEXEC@ \
+		   	-xmlfile=summary.xml
+
+../util/mtestf90.o: 
+	(cd ../util && $(MAKE) mtestf90.o)

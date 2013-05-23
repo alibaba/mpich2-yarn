@@ -1,0 +1,18 @@
+<dir>
+<file name="wintimerconf.h" info="1194043819"/>
+<file name="wtime.c" info="1226006997"/>
+<file name="wtick.c" info="1194043819"/>
+<file name="mpidtime.c" info="1291834086"/>
+</dir>
+<data>
+<fileinfo name="wintimerconf.h">
+</fileinfo>
+<fileinfo name="wtime.c">
+MPID_STATE_MPI_WTIME MPI_Wtime
+</fileinfo>
+<fileinfo name="wtick.c">
+MPID_STATE_MPI_WTICK MPI_Wtick
+</fileinfo>
+<fileinfo name="mpidtime.c">
+</fileinfo>
+</data>

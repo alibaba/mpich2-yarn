@@ -5,14 +5,21 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.Vector;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.cli.CommandLine;
@@ -20,9 +27,13 @@ import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.yarn.api.AMRMProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
@@ -34,6 +45,7 @@ import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterRespo
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
 import org.apache.hadoop.yarn.api.records.AMResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
@@ -47,15 +59,22 @@ import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
+import org.apache.hadoop.yarn.service.CompositeService;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
 import com.taobao.yarn.mpi.MPIConfiguration;
 import com.taobao.yarn.mpi.MPIConstants;
 import com.taobao.yarn.mpi.allocator.ContainersAllocator;
+import com.taobao.yarn.mpi.allocator.DistinctContainersAllocator;
 import com.taobao.yarn.mpi.allocator.MultiMPIProcContainersAllocator;
+import com.taobao.yarn.mpi.util.FileSplit;
+import com.taobao.yarn.mpi.util.InputFile;
+import com.taobao.yarn.mpi.util.MPDException;
+import com.taobao.yarn.mpi.util.MPIResult;
+import com.taobao.yarn.mpi.util.Utilities;
 
-public class ApplicationMaster {
+public class ApplicationMaster extends CompositeService {
 
   private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
   // Configuration
@@ -65,17 +84,13 @@ public class ApplicationMaster {
   // Handle to communicate with the Resource Manager
   private AMRMProtocol resourceManager;
   // Handle to talk to the Resource Manager/Applications Manager
-  @SuppressWarnings("unused")
   private final ClientRMProtocol applicationsManager;
   // Application Attempt Id ( combination of attemptId and fail count )
   private ApplicationAttemptId appAttemptID;
-  // TODO For status update for clients - yet to be implemented.
-  // Hostname of the container
-  private final String appMasterHostname = "";
-  // Port on which the app master listens for status update requests from clients
-  private final int appMasterRpcPort = 0;
+  // Host name of the container, for status update of clients
+  private String appMasterHostname = "";
   // Tracking url to which app master publishes info for clients to monitor
-  private final String appMasterTrackingUrl = "";
+  private String appMasterTrackingUrl = "";
   // App Master configuration
   // No. of containers to run shell command on
   private int numTotalContainers = 1;
@@ -89,10 +104,8 @@ public class ApplicationMaster {
   private final AtomicInteger numCompletedContainers = new AtomicInteger();
   // Count of failed containers
   private final AtomicInteger numFailedContainers = new AtomicInteger();
-  // Launch threads
-  private final List<Thread> launchThreads = new ArrayList<Thread>();
-  // Hosts
-  private final Set<String> hosts = new HashSet<String>();
+  // Container Hosts
+  private final Set<String> containerHosts = new HashSet<String>();
   // location of MPI program on HDFS
   private String hdfsMPIExecLocation;
   // timestamp of MPI program on HDFS
@@ -113,22 +126,64 @@ public class ApplicationMaster {
   private List<Container> allContainers;
   private String phrase = "";
   private int port = 5000;
+  // A queue that keep track of the mpi messages
+  private final LinkedBlockingQueue<String> mpiMsgs = new LinkedBlockingQueue<String>(MPIConstants.MAX_LINE_LOGS);
+  //processes per container
+  private int ppc = 1;
+  // true if all the containers download the same file
+  private boolean isAllSame = true;
+
+  //MPI Input Data location
+  private final ConcurrentHashMap<String, InputFile> fileToLocation = new ConcurrentHashMap<String, InputFile>();
+
+  //MPI output Data location in the container
+  private final ConcurrentHashMap<String, String> fileToDestination = new ConcurrentHashMap<String, String>();
+
+  private final ConcurrentHashMap<String, List<FileStatus>> fileDownloads = new ConcurrentHashMap<String, List<FileStatus>>();
+
+  //MPI result
+  private final ConcurrentHashMap<String, MPIResult> resultToDestination = new ConcurrentHashMap<String, MPIResult>();
+
+  // Running Container Status
+  private final Map<String, MPDStatus> containerToStatus = new ConcurrentHashMap<String, MPDStatus>();
+  // An RPC Service listening the container status
+  private MPDListenerImpl mpdListener;
+  // mpi clent service including the web application and an RPC Service transfering the logs of the ApplicationMaster
+  private MPIClientService clientService;
+  // Pull status interval
+  private static final int PULL_INTERVAL = 1000;
+  // Running App Context for passing to the web interface
+  private final AppContext appContext = new RunningAppContext();
+  private final FileSystem dfs;
 
   /**
    * @param args Command line args
    */
   public static void main(String[] args) {
     boolean result = false;
+    ApplicationMaster appMaster = null;
     try {
-      ApplicationMaster appMaster = new ApplicationMaster();
+      appMaster = new ApplicationMaster();
+      appMaster.appendMsg("Initializing ApplicationMaster");
       LOG.info("Initializing ApplicationMaster");
-      if (!appMaster.init(args)) {
+      if (!appMaster.parseArgs(args)) {
         System.exit(0);
       }
       result = appMaster.run();
     } catch (Throwable t) {
       LOG.fatal("Error running ApplicationMaster", t);
       System.exit(1);
+    }finally{
+      if (appMaster != null) {
+        //wait until the mpiMsgs is empty
+        while (appMaster.getMpiMsgs().size() > 0) {
+          try {
+            Thread.sleep(MPIConfiguration.MPI_APPLICATION_WAIT_MESSAGE_EMPTY);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+        }
+      }
     }
     if (result) {
       LOG.info("Application Master completed successfully. exiting");
@@ -150,11 +205,17 @@ public class ApplicationMaster {
     }
   }
 
-  public ApplicationMaster() throws Exception {
+  /**
+   * Constructor, connect to Resource Manager
+   * @throws IOException
+   */
+  public ApplicationMaster() throws IOException {
+    super(ApplicationMaster.class.getName());
     // Set up the configuration and RPC
-    conf = new Configuration();
+    conf = new MPIConfiguration();
     rpc = YarnRPC.create(conf);
     applicationsManager = connectToASM();
+    dfs = FileSystem.get(conf);
   }
 
   /**
@@ -164,7 +225,7 @@ public class ApplicationMaster {
    * @throws ParseException
    * @throws IOException
    */
-  public boolean init(String[] args) throws ParseException, IOException {
+  public boolean parseArgs(String[] args) throws ParseException, IOException {
 
     Options opts = new Options();
     opts.addOption("app_attempt_id", true, "App Attempt ID. Not to be used unless for testing purposes");
@@ -249,25 +310,83 @@ public class ApplicationMaster {
       throw new IllegalArgumentException("Illegal values in env for AppMaster.jar path");
     }
 
+    numTotalContainers = Integer.parseInt(cliParser.getOptionValue("num_containers", "1"));
+
     if (envs.containsKey(MPIConstants.MPIOPTIONS)) {
       mpiOptions = envs.get(MPIConstants.MPIOPTIONS);
       LOG.info("Got extra MPI options: \"" + mpiOptions + "\"");
     }
+    String mpiInputs = envs.get(MPIConstants.MPIINPUTS);
+    if (!StringUtils.isBlank(mpiInputs)) {
+      //TODO hard coding with '@',the regular is same with client
+      String []inputs = StringUtils.split(mpiInputs, "@");
+      if (inputs != null && inputs.length > 0) {
+        for (String fileName : inputs ) {
+          InputFile input = new InputFile();
+          String inputEvn = envs.get(fileName);
+          LOG.debug(String.format("path of %s : %s", fileName, inputEvn));
+          if(!StringUtils.isBlank(inputEvn)) {
+            String inputSplit[] = StringUtils.split(inputEvn,";");
+            input.setLocation(inputSplit[0]);
+            input.setSame(Boolean.valueOf(inputSplit[1]));
+            fileToLocation.put(fileName, input);
+            Path inputPath = new Path(input.getLocation());
+            inputPath = dfs.makeQualified(inputPath);
+            List<FileStatus> downLoadFiles = Utilities.listRecursive(inputPath, dfs, null);
+            fileDownloads.put(fileName, downLoadFiles);
+            if (!input.isSame()) {
+              if (downLoadFiles != null && downLoadFiles.size() > 0) {
+                //if the download mode is same,and the file count is less than container count, we assgin file count to container count
+                if(downLoadFiles.size() < numTotalContainers){
+                  numTotalContainers = downLoadFiles.size();
+                }
+              }
+              isAllSame = false;
+            }
+          }
+        }
+      }
+      LOG.info(String.format("container count:%d", numTotalContainers));
 
-    // FIXME MPI executable local directory, hard coding '/home/hadoop'
-    mpiExecDir = "/home/hadoop/mpiexecs/" + appAttemptID.toString();
+      if (isAllSame) {
+        ppc = Integer.parseInt(envs.get(MPIConstants.PROCESSESPERCONTAINER));
+      }
+    }
+
+    String mpiResults = envs.get(MPIConstants.MPIOUTPUTS);
+    if (!StringUtils.isBlank(mpiResults)) {
+      //TODO hard coding with '@',the regular is same with client
+      String []results = StringUtils.split(mpiResults, "@");
+      if (results != null && results.length > 0) {
+        for (String fileName : results) {
+          String location = envs.get(fileName);
+          MPIResult mResult = new MPIResult();
+          mResult.setDfsLocation(location);
+          String local = Utilities.getApplicationDir(conf, appAttemptID.toString()) + fileName;
+          mResult.setContainerLocal(local);
+          resultToDestination.put(fileName, mResult);
+          LOG.debug(String.format("path of %s : %s", fileName, mResult.toString()));
+        }
+      }
+    }
+
+    if (envs.containsKey(ApplicationConstants.NM_HOST_ENV)) {
+      appMasterHostname = envs.get(ApplicationConstants.NM_HOST_ENV);
+      LOG.info("Environment " + ApplicationConstants.NM_HOST_ENV + " is "
+          + appMasterHostname);
+    }
+
+    mpiExecDir = Utilities.getMpiExecDir(conf, appAttemptID);
 
     containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "10"));
     LOG.info("Container memory is " + containerMemory + " MB");
-
-    numTotalContainers = Integer.parseInt(cliParser.getOptionValue("num_containers", "1"));
-    LOG.info("Number of total containers is " + numTotalContainers);
 
     requestPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
 
     phrase = Utilities.getRandomPhrase(16);
     // TODO Port range, max is 65535, min is 5000, should be configurable
     port = appAttemptID.getApplicationId().getId() % 60536 + 5000;
+
     return true;
   }
 
@@ -280,19 +399,109 @@ public class ApplicationMaster {
   }
 
   /**
+   * split the downLoadFiles
+   * @param downLoadFiles
+   * @param fileToLocation
+   * @param containerSize
+   * @return
+   */
+  private ConcurrentHashMap<Integer,List<FileSplit>> getFileSplit(final ConcurrentHashMap<String, List<FileStatus>> downLoadFiles,
+      final ConcurrentHashMap<String, InputFile> fileToLocation, final List<Container> containers){
+    int containerSize = containers.size();
+    ConcurrentHashMap<Integer, List<FileSplit>> mSplits = new ConcurrentHashMap<Integer, List<FileSplit>>();
+    //init the mSplits
+    for (Container container : containers) {
+      List<FileSplit> fSplits = new ArrayList<FileSplit>();
+      mSplits.putIfAbsent(Integer.valueOf(container.getId().getId()), fSplits);
+    }
+    Set<String> fileKeys = downLoadFiles.keySet();
+    Iterator<String> itKeys = fileKeys.iterator();
+    while (itKeys.hasNext()) {
+      String fileName = itKeys.next();
+      List<FileStatus> files = downLoadFiles.get(fileName);
+      InputFile inputFile = fileToLocation.get(fileName);
+      List<Path> paths = Utilities.convertToPath(files);
+      if (inputFile.isSame()) {
+        FileSplit sameSplit = new FileSplit();
+        sameSplit.setFileName(fileName);
+        sameSplit.setSplits(paths);
+        for (Container container : containers) {
+          Integer containerId = container.getId().getId();
+          String downFileName = Utilities.getApplicationDir(conf, appAttemptID.toString()) + fileName;
+          fileToDestination.put(fileName, downFileName);
+          sameSplit.setDownFileName(downFileName);
+          mSplits.get(containerId).add(sameSplit);
+        }
+      }else {
+        ConcurrentHashMap<Integer, ConcurrentHashMap<String, FileSplit>> notSame = new  ConcurrentHashMap<Integer, ConcurrentHashMap<String, FileSplit>>();
+        for (int i = 0, len = paths.size(); i < len; i++) {
+          Integer index = i % containerSize;
+          ConcurrentHashMap<String, FileSplit> mapSplit = null;
+          Integer containerID = containers.get(index).getId().getId();
+          if (notSame.containsKey(containerID)){
+            mapSplit = notSame.get(containerID);
+          }else {
+            mapSplit = new ConcurrentHashMap<String, FileSplit>();
+            notSame.put(containerID, mapSplit);
+          }
+          if (mapSplit.containsKey(fileName)) {
+            mapSplit.get(fileName).addPath(paths.get(i));
+          }else {
+            FileSplit fsNotSame = new FileSplit();
+            fsNotSame.setFileName(fileName);
+            List<Path> ps = new ArrayList<Path>();
+            ps.add(paths.get(i));
+            fsNotSame.setSplits(ps);
+            String destination = Utilities.getApplicationDir(conf, appAttemptID.toString()) + fileName;
+            fsNotSame.setDownFileName(destination);
+            fileToDestination.put(fileName, destination);
+            mapSplit.put(fileName, fsNotSame);
+          }
+        }
+        Set<Integer> containerIDS = notSame.keySet();
+        Iterator<Integer> itContainer = containerIDS.iterator();
+        while (itContainer.hasNext()) {
+          Integer key = itContainer.next();
+          mSplits.get(key).add(notSame.get(key).get(fileName));
+        }
+      }
+    }
+
+    return mSplits;
+  }
+
+  /**
+   * Initialize and start RPC services
+   */
+  public void initAndStartRPCServices() {
+    LOG.info("Initializing MPDProtocal's RPC services...");
+    mpdListener = new MPDListenerImpl();
+    mpdListener.init(conf);
+    LOG.info("Starting MPDProtocal's RPC services...");
+    mpdListener.start();
+
+    LOG.info("Initiallizing MPIClient service and WebApp...");
+    clientService = new MPIClientService(appContext);
+    clientService.init(conf);
+
+    LOG.info("Starting MPIClient service...");
+    clientService.start();
+    appMasterTrackingUrl = appMasterHostname + ":" + clientService.getHttpPort();
+    LOG.info("Application Master tracking url is " + appMasterTrackingUrl);
+  }
+
+  /**
    * Main run function for the application master
    * @throws IOException
    */
   public boolean run() throws IOException {
     LOG.info("Starting ApplicationMaster");
-
     // Connect to ResourceManager
     resourceManager = connectToRM();
 
-    // Setup local RPC Server to accept status requests directly from clients
-    // TODO need to setup a protocol for client to be able to communicate to the RPC server
+    // TODO Setup local RPC Server to accept status requests directly from clients
     // TODO use the rpc port info to register with the RM for the client to send requests to this app master
-
+    initAndStartRPCServices();
     // Register self with ResourceManager
     RegisterApplicationMasterResponse response = registerToRM();
     // Dump out information about cluster capability as seen by the resource manager
@@ -322,22 +531,18 @@ public class ApplicationMaster {
     // RM is defined by a config setting: RM_AM_EXPIRY_INTERVAL_MS with default
     // defined by DEFAULT_RM_AM_EXPIRY_INTERVAL_MS. The allocate calls to the RM
     // count as heartbeats so, for now, this additional heartbeat emitter is not required.
-
-    // Setup ask for containers from RM
-    // Send request for containers to RM
-    // Until we get our fully allocated quota, we keep on polling RM for containers
-    // Keep looping until all the containers are launched and shell script executed on them
-    // ( regardless of success/failure).
-
-    ContainersAllocator allocator = new MultiMPIProcContainersAllocator(resourceManager,
-        requestPriority, containerMemory, appAttemptID);
+    List<FutureTask<Boolean>> launchResults = new ArrayList<FutureTask<Boolean>>();
+    ContainersAllocator allocator = createContainersAllocator();
     allContainers = allocator.allocateContainers(numTotalContainers);
     numTotalContainers = allContainers.size();
+    // TODO Available where we use MultiMPIProcContainersAllocator strategy
     hostToProcNum = allocator.getHostToProcNum();
     AtomicInteger rmRequestID = new AtomicInteger(allocator.getCurrentRequestId());
+    //key(Integer) represent the containerID;value(List<FileSplit>) represent the files which need to be downloaded
+    ConcurrentHashMap<Integer,List<FileSplit>> splits = getFileSplit(fileDownloads, fileToLocation, allContainers);
     for (Container allocatedContainer : allContainers) {
       String host = allocatedContainer.getNodeId().getHost();
-      hosts.add(host);
+      containerHosts.add(host);
       LOG.info("Launching command on a new container"
           + ", containerId=" + allocatedContainer.getId()
           + ", containerNode=" + allocatedContainer.getNodeId().getHost()
@@ -345,119 +550,176 @@ public class ApplicationMaster {
           + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress()
           + ", containerState" + allocatedContainer.getState()
           + ", containerResourceMemory" + allocatedContainer.getResource().getMemory());
-      LaunchContainerRunnable runnableLaunchContainer =
-          new LaunchContainerRunnable(allocatedContainer);
-      Thread launchThread = new Thread(runnableLaunchContainer);
+      LaunchContainer runnableLaunchContainer =
+          new LaunchContainer(allocatedContainer, splits.get(Integer.valueOf(allocatedContainer.getId().getId())), resultToDestination.values());
       // launch and start the container on a separate thread to keep the main thread
-      // unblocked as all containers may not be allocated at one go.
-      launchThreads.add(launchThread);
+      // unblocked as all containers may not be allocated/launched at one go.
+      FutureTask<Boolean> launchTask = new FutureTask<Boolean>(runnableLaunchContainer);
+      Thread launchThread = new Thread(launchTask);
       launchThread.start();
+      launchResults.add(launchTask);
+      mpdListener.addContainer(allocatedContainer.getId().getId());
     }
 
-    // FIXME Bad Coding, wait all SMPD for staring, we should send a request and check
-    Utilities.sleep(5000);
-
-    launchMpiExec();
-
-    int loopCounter = -1;
-
-    while (numCompletedContainers.get() < numTotalContainers
-        && !appDone) {
-      loopCounter++;
-      Utilities.sleep(1000);
-
-      LOG.info("Sending empty request to RM, to let RM know we are alive");
-      AMResponse amResp = Utilities.sendContainerAskToRM(
-          rmRequestID, appAttemptID, resourceManager,
-          new ArrayList<ResourceRequest>(),
-          new ArrayList<ContainerId>(),
-          (float) numCompletedContainers.get() / numTotalContainers);
-
-      // Check what the current available resources in the cluster are
-      // TODO should we do anything if the available resources are not enough?
-      Resource availableResources = amResp.getAvailableResources();
-      LOG.info("Current available resources in the cluster " + availableResources);
-
-      // Check the completed containers
-      List<ContainerStatus> completedContainers = amResp.getCompletedContainersStatuses();
-      LOG.info("Got response from RM for container ask, completedCnt=" + completedContainers.size());
-      for (ContainerStatus containerStatus : completedContainers) {
-        LOG.info("Got container status for containerID= " + containerStatus.getContainerId()
-            + ", state=" + containerStatus.getState()
-            + ", exitStatus=" + containerStatus.getExitStatus()
-            + ", diagnostics=" + containerStatus.getDiagnostics());
-
-        // increment counters for completed/failed containers
-        int exitStatus = containerStatus.getExitStatus();
-        switch (exitStatus) {
-        case 0:  // exit successfully
-          numCompletedContainers.incrementAndGet();
-          LOG.info("Container completed successfully."
-              + " containerId=" + containerStatus.getContainerId());
-          break;
-        case -1000:  // still running
-          LOG.info("Container is still running."
-              + " containerId=" + containerStatus.getContainerId());
-          break;
-        case -100:  // being killed or getting lost
-          numCompletedContainers.incrementAndGet();
-          numFailedContainers.incrementAndGet();
-          break;
-        case -101:
-          LOG.info("Container is not launched."
-              + " containerId=" + containerStatus.getContainerId());
-          break;
-        default:
-          LOG.info("Something else happened."
-              + " containerId=" + containerStatus.getContainerId());
-          break;
-        }
+    Boolean allLaunchSuccess = true;
+    try {
+      for (FutureTask<Boolean> taskResult : launchResults) {
+        allLaunchSuccess = taskResult.get();
       }
-      if (numCompletedContainers.get() == numTotalContainers) {
-        appDone = true;
-      }
-
-      LOG.info("Current application state: loop=" + loopCounter
-          + ", appDone=" + appDone
-          + ", total=" + numTotalContainers
-          + ", completed=" + numCompletedContainers
-          + ", failed=" + numFailedContainers);
-      // TODO Add a timeout handling layer, for misbehaving mpi application
-    }  // end while
-
-    // Join all launched threads
-    // needed for when we time out
-    // and we need to release containers
-    for (Thread launchThread : launchThreads) {
+    } catch (Exception e) {
+      allLaunchSuccess = false;
+      LOG.error("launch error:", e);
+      this.appendMsg(org.apache.hadoop.util.StringUtils.stringifyException(e));
+    }
+    boolean isSuccess = true;
+    //all tasks are launched successfully
+    if (allLaunchSuccess) {
+      this.appendMsg("all containers are launched successfully");
       try {
-        launchThread.join();
-      } catch (InterruptedException e) {
-        LOG.info("Exception thrown in thread join: " + e.getMessage());
-        e.printStackTrace();
+        // Wait all SMPD for staring
+        while (!mpdListener.isAllMPDStarted()) {
+          Utilities.sleep(PULL_INTERVAL);
+        }
+        launchMpiExec();
+        int loopCounter = -1;
+        while (numCompletedContainers.get() < numTotalContainers
+            && !appDone) {
+          loopCounter++;
+          Utilities.sleep(PULL_INTERVAL);
+          //check whether all the smpd process is healthy
+          boolean allHealthy = mpdListener.isAllHealthy();
+          if (allHealthy) {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Sending empty request to RM, to let RM know we are alive");
+            }
+            AMResponse amResp = Utilities.sendContainerAskToRM(
+                rmRequestID, appAttemptID, resourceManager,
+                new ArrayList<ResourceRequest>(),
+                new ArrayList<ContainerId>(),
+                (float) numCompletedContainers.get() / numTotalContainers);
+
+            // Check what the current available resources in the cluster are
+            // TODO should we do anything if the available resources are not enough?
+            Resource availableResources = amResp.getAvailableResources();
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Current available resources in the cluster " + availableResources);
+            }
+
+            // Check the completed containers
+            List<ContainerStatus> completedContainers = amResp.getCompletedContainersStatuses();
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Got response from RM for container ask, completedCnt=" + completedContainers.size());
+            }
+            for (ContainerStatus containerStatus : completedContainers) {
+              LOG.info("Got container status for containerID= " + containerStatus.getContainerId()
+                  + ", state=" + containerStatus.getState()
+                  + ", exitStatus=" + containerStatus.getExitStatus()
+                  + ", diagnostics=" + containerStatus.getDiagnostics());
+
+              // increment counters for completed/failed containers
+              int exitStatus = containerStatus.getExitStatus();
+              switch (exitStatus) {
+              case 0:  // exit successfully
+                numCompletedContainers.incrementAndGet();
+                LOG.info("Container completed successfully."
+                    + " containerId=" + containerStatus.getContainerId());
+                break;
+              case -1000:  // still running
+                LOG.info("Container is still running."
+                    + " containerId=" + containerStatus.getContainerId());
+                break;
+              case -100:  // being killed or getting lost
+                numCompletedContainers.incrementAndGet();
+                numFailedContainers.incrementAndGet();
+                break;
+              case -101:
+                LOG.info("Container is not launched."
+                    + " containerId=" + containerStatus.getContainerId());
+                break;
+              default:
+                LOG.info("Something else happened."
+                    + " containerId=" + containerStatus.getContainerId());
+                break;
+              }
+            }
+            if (numCompletedContainers.get() == numTotalContainers) {
+              appDone = true;
+            }
+
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Current application state: loop=" + loopCounter
+                  + ", appDone=" + appDone
+                  + ", total=" + numTotalContainers
+                  + ", completed=" + numCompletedContainers
+                  + ", failed=" + numFailedContainers);
+            }
+            // TODO Add a timeout handling layer, for misbehaving mpi application
+          }
+        }  // end while
+        // When the application completes, it should send a finish application signal
+        // to the RM
+        LOG.info("Application completed. Signalling finish to RM");
+
+        if (numFailedContainers.get() == 0) {
+          isSuccess = true;
+          finishApp(resourceManager, appAttemptID, FinalApplicationStatus.SUCCEEDED, null);
+        } else {
+          isSuccess = false;
+          String diagnostics = "Diagnostics."
+              + ", total=" + numTotalContainers
+              + ", completed=" + numCompletedContainers.get()
+              + ", failed=" + numFailedContainers.get();
+          finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, diagnostics);
+        }
+      } catch (MPDException e) {
+        isSuccess=false;
+        LOG.error("error occurs while starting MPD", e);
+        this.appendMsg("error occurs while starting MPD:" + org.apache.hadoop.util.StringUtils.stringifyException(e));
+        finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, e.getMessage());
+      } catch (Exception e) {
+        isSuccess=false;
+        LOG.error("error occurs while starting MPD", e);
+        this.appendMsg("error occurs while starting MPD:" + org.apache.hadoop.util.StringUtils.stringifyException(e));
+        finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, e.getMessage());
       }
+    } else {
+      //the applicationMaster finish with failure and realease the containers
+      isSuccess=false;
+      finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, "error occurs while launching containers");
     }
+    return isSuccess;
+  }
 
-    // When the application completes, it should send a finish application signal
-    // to the RM
-    LOG.info("Application completed. Signalling finish to RM");
+  /**
+   * Get the http port of the application master
+   * @return the http port
+   */
+  public int getHttpPort() {
+    return clientService.getHttpPort();
+  }
 
+  public BlockingQueue<String> getMpiMsgs() {
+    return mpiMsgs;
+  }
+
+  public void appendMsg(String message) {
+    Boolean flag = mpiMsgs.offer(message);
+    if (!flag) {
+      LOG.warn("message queue is full");
+    }
+  }
+
+  /**
+   * @throws YarnRemoteException
+   */
+  private void finishApp(final AMRMProtocol resourceManager, final ApplicationAttemptId appAttemptID, final FinalApplicationStatus status, final String diagnostics) throws YarnRemoteException {
     FinishApplicationMasterRequest finishReq = Records.newRecord(FinishApplicationMasterRequest.class);
     finishReq.setAppAttemptId(appAttemptID);
-    boolean isSuccess = true;
-    if (numFailedContainers.get() == 0) {
-      finishReq.setFinishApplicationStatus(FinalApplicationStatus.SUCCEEDED);
-    }
-    else {
-      finishReq.setFinishApplicationStatus(FinalApplicationStatus.FAILED);
-      String diagnostics = "Diagnostics."
-          + ", total=" + numTotalContainers
-          + ", completed=" + numCompletedContainers.get()
-          + ", failed=" + numFailedContainers.get();
+    finishReq.setFinishApplicationStatus(status);
+    if(!StringUtils.isBlank(diagnostics)) {
       finishReq.setDiagnostics(diagnostics);
-      isSuccess = false;
     }
     resourceManager.finishApplicationMaster(finishReq);
-    return isSuccess;
   }
 
   /**
@@ -478,13 +740,29 @@ public class ApplicationMaster {
       commandBuilder.append(" ");
       commandBuilder.append(host);
       commandBuilder.append(" ");
-      commandBuilder.append(hostToProcNum.get(host));
+      commandBuilder.append(ppc);
     }
     commandBuilder.append(" ");
     commandBuilder.append(mpiExecDir);
     commandBuilder.append("/MPIExec");
     if (!mpiOptions.isEmpty()) {
       commandBuilder.append(" ");
+      //replace the fileName with the hdfs path
+      Set<String> fileNames = fileToDestination.keySet();
+      Iterator<String> itNames = fileNames.iterator();
+      while (itNames.hasNext()) {
+        String fileName = itNames.next();
+        mpiOptions=mpiOptions.replaceAll(fileName, this.fileToDestination.get(fileName));
+      }
+      //replace the result with container local location
+      Set<String> resultNames = resultToDestination.keySet();
+      Iterator<String> itResult = resultNames.iterator();
+      while (itResult.hasNext()) {
+        String resultName = itResult.next();
+        mpiOptions=mpiOptions.replaceAll(resultName, resultToDestination.get(resultName).getContainerLocal());
+      }
+      LOG.info(String.format("mpi options:", mpiOptions));
+
       commandBuilder.append(mpiOptions);
     }
     LOG.info("Executing command:" + commandBuilder.toString());
@@ -496,9 +774,11 @@ public class ApplicationMaster {
     Thread stdinThread = new Thread(new Runnable() {
       @Override
       public void run() {
-        Scanner pcStdin = new Scanner(pc.getInputStream());
-        while (pcStdin.hasNextLine()) {
-          LOG.info(pcStdin.nextLine());
+        Scanner pcStdout = new Scanner(pc.getInputStream());
+        while (pcStdout.hasNextLine()) {
+          String line = "[stdout] " + pcStdout.nextLine();
+          LOG.info(line);
+          appendMsg(line);
         }
       }
     });
@@ -509,7 +789,9 @@ public class ApplicationMaster {
       public void run() {
         Scanner pcStderr = new Scanner(pc.getErrorStream());
         while (pcStderr.hasNextLine()) {
-          LOG.info(pcStderr.nextLine());
+          String line = "[stderr] " + pcStderr.nextLine();
+          LOG.info(line);
+          appendMsg(line);
         }
       }
     });
@@ -523,9 +805,9 @@ public class ApplicationMaster {
           LOG.info("MPI Process returned with value: " + ret);
           LOG.info("Shutting down daemons...");
           Runtime rt = Runtime.getRuntime();
-          for (String host : hosts) {
+          for (String host : containerHosts) {
             try {
-              String command = "smpd -shutdown " + host + " -phrase " + phrase + " -port " + port + " -debug";
+              String command = "smpd -shutdown " + host + " -phrase " + phrase + " -port " + port + " -yarn";
               LOG.info("Executing the command: " + command);
               Process process = rt.exec(command);
               Scanner scanner = new Scanner(process.getInputStream());
@@ -544,8 +826,7 @@ public class ApplicationMaster {
           }
           LOG.info("All daemons shut down! :-D");
         } catch (InterruptedException e) {
-          e.printStackTrace();
-          LOG.warn(e.getMessage());
+          LOG.error("mpiexec Thread is nterruptted!", e);
         }
       }
     });
@@ -553,12 +834,13 @@ public class ApplicationMaster {
   }
 
   private String[] generateEnvStrs() {
+    String userHomeDir = conf.get(MPIConfiguration.MPI_NM_STARTUP_USERDIR, "/home/hadoop");
     Map<String, String> envs = System.getenv();
     String[] envStrs = new String[envs.size()];
     int i = 0;
     for (Entry<String, String> env : envs.entrySet()) {
       if (env.getKey().equals("HOME")) {
-        envStrs[i] = env.getKey() + "=/home/hadoop";  // FIXME hard coding path
+        envStrs[i] = env.getKey() + "=" + userHomeDir;
       } else {
         envStrs[i] = env.getKey() + "=" + env.getValue();
       }
@@ -571,23 +853,30 @@ public class ApplicationMaster {
    * Thread to connect to the {@link ContainerManager} and
    * launch the container that will execute the shell command.
    */
-  private class LaunchContainerRunnable implements Runnable {
+  private class LaunchContainer implements Callable<Boolean> {
 
-    Log LOG = LogFactory.getLog(LaunchContainerRunnable.class);
+    Log LOG = LogFactory.getLog(LaunchContainer.class);
     // Allocated container
     Container container;
     // Handle to communicate with ContainerManager
     ContainerManager cm;
 
+    //files needing to download
+    private final List<FileSplit> fileSplits;
+    //mpi results needing to be uploaded to hdfs
+    private final Collection<MPIResult> results;
+
     /**
      * @param lcontainer Allocated container
      */
-    public LaunchContainerRunnable(Container lcontainer) {
+    public LaunchContainer(Container lcontainer, List<FileSplit> fileSplits, Collection<MPIResult> results) {
       this.container = lcontainer;
+      this.fileSplits =  fileSplits;
+      this.results = results;
     }
 
     /**
-     * Helper function to connect to CM
+     * Helper function to connect to ContainerManager
      */
     private void connectToCM() {
       LOG.debug("Connecting to ContainerManager for containerid=" + container.getId());
@@ -604,8 +893,7 @@ public class ApplicationMaster {
      * start request to the CM.
      */
     @Override
-    public void run() {
-      // Connect to ContainerManager
+    public Boolean call() {
       connectToCM();
 
       LOG.info("Setting up container launch container for containerid=" + container.getId());
@@ -614,8 +902,7 @@ public class ApplicationMaster {
       ctx.setContainerId(container.getId());
       ctx.setResource(container.getResource());
 
-      String jobUserName = System.getenv(ApplicationConstants.Environment.USER
-          .name());
+      String jobUserName = System.getenv(ApplicationConstants.Environment.USER.name());
       ctx.setUser(jobUserName);
       LOG.info("Setting user in ContainerLaunchContext to: " + jobUserName);
 
@@ -631,7 +918,7 @@ public class ApplicationMaster {
         LOG.error("Error when trying to use mpi application path specified in env"
             + ", path=" + hdfsMPIExecLocation);
         e.printStackTrace();
-        return;
+        return false;
       }
       mpiRsrc.setTimestamp(hdfsMPIExecTimestamp);
       mpiRsrc.setSize(hdfsMPIExecLen);
@@ -646,7 +933,7 @@ public class ApplicationMaster {
         LOG.error("Error when trying to use appmaster.jar path specified in env"
             + ", path=" + hdfsAppJarLocation);
         e.printStackTrace();
-        return;
+        return false;
       }
       appJarRsrc.setTimestamp(hdfsAppJarTimeStamp);
       appJarRsrc.setSize(hdfsAppJarLen);
@@ -669,13 +956,30 @@ public class ApplicationMaster {
       }
       env.put("CLASSPATH", classPathEnv.toString());
       env.put("MPIEXECDIR", mpiExecDir);
+
+      env.put(MPIConstants.CONTAININPUT, Utilities.encodeSplit(fileSplits));
+      env.put(MPIConstants.APPATTEMPTID, appAttemptID.toString());
+      env.put(MPIConstants.CONTAINOUTPUT, Utilities.encodeMPIResult(results));
+
+      env.put("CONTAINER_ID", String.valueOf(container.getId().getId()));
+      env.put("APPMASTER_HOST", System.getenv(ApplicationConstants.NM_HOST_ENV));
+      env.put("APPMASTER_PORT", String.valueOf(mpdListener.getServerPort()));
       ctx.setEnvironment(env);
 
+      containerToStatus.put(container.getId().toString(), MPDStatus.UNDEFINED);
       // Set the necessary command to execute on the allocated container
       LOG.info("Setting up container command");
       Vector<CharSequence> vargs = new Vector<CharSequence>(5);
       vargs.add("${JAVA_HOME}" + "/bin/java");
       vargs.add("-Xmx" + containerMemory + "m");
+      // log are specified by the nodeManager's container-log4j.properties and nodemanager can specify the MPI_AM_LOG_LEVEL and MPI_AM_LOG_SIZE
+      String logLevel = conf.get(MPIConfiguration.MPI_CONTAINER_LOG_LEVEL, MPIConfiguration.DEFAULT_MPI_CONTAINER_LOG_LEVEL);
+      long logSize = conf.getLong(MPIConfiguration.MPI_CONTAINER_LOG_SIZE, MPIConfiguration.DEFAULT_MPI_CONTAINER_LOG_SIZE);
+      Utilities.addLog4jSystemProperties(logLevel, logSize, vargs);
+      String javaOpts = conf.get(MPIConfiguration.MPI_CONTAINER_JAVA_OPTS_EXCEPT_MEMORY,"");
+      if (!StringUtils.isBlank(javaOpts)) {
+        vargs.add(javaOpts);
+      }
       vargs.add("com.taobao.yarn.mpi.server.Container");
       vargs.add("-p " + port);
       vargs.add("-f " + phrase);
@@ -698,14 +1002,14 @@ public class ApplicationMaster {
       StartContainerRequest startReq = Records.newRecord(StartContainerRequest.class);
       startReq.setContainerLaunchContext(ctx);
       try {
-        // TODO deal with start failure
         cm.startContainer(startReq);
       } catch (YarnRemoteException e) {
-        LOG.info("Start container failed for :"
-            + ", containerId=" + container.getId());
-        e.printStackTrace();
+        LOG.error("Start container failed for :"
+            + ", containerId=" + container.getId(), e);
         // TODO do we need to release this container?
+        return false;
       }
+      return true;
     }
   }
 
@@ -736,8 +1040,8 @@ public class ApplicationMaster {
     // rpc port on which the app master accepts requests from the client
     // tracking url for the app master
     appMasterRequest.setApplicationAttemptId(appAttemptID);
-    appMasterRequest.setHost(appMasterHostname);
-    appMasterRequest.setRpcPort(appMasterRpcPort);
+    appMasterRequest.setHost(clientService.getBindAddress().getHostName());
+    appMasterRequest.setRpcPort(clientService.getBindAddress().getPort());
     appMasterRequest.setTrackingUrl(appMasterTrackingUrl);
     return resourceManager.registerApplicationMaster(appMasterRequest);
   }
@@ -757,5 +1061,49 @@ public class ApplicationMaster {
     ClientRMProtocol applicationsManager = ((ClientRMProtocol) rpc.getProxy(
         ClientRMProtocol.class, rmAddress, conf));
     return applicationsManager;
+  }
+
+  /**
+   * Create the container allocation strategy by configuration
+   * The method will setup ask for containers from RM and send request for containers to RM
+   * Until we get our fully allocated quota, we keep on polling RM for containers
+   * Keep looping until all the containers are launched and shell script executed on them
+   * ( regardless of success/failure).
+   * @return ContainerAllocation reference
+   * @throws YarnRemoteException
+   */
+  private ContainersAllocator createContainersAllocator() throws YarnRemoteException {
+    // FIXME the first "new" operation is useless, we will use configuration here
+    ContainersAllocator allocator = new MultiMPIProcContainersAllocator(resourceManager,
+        requestPriority, containerMemory, appAttemptID);
+    allocator = new DistinctContainersAllocator(resourceManager, applicationsManager,
+        requestPriority, containerMemory, appAttemptID);
+    return allocator;
+  }
+
+  /**
+   * Internal class for running application class
+   */
+  private class RunningAppContext implements AppContext {
+
+    @Override
+    public ApplicationId getApplicationID() {
+      return appAttemptID.getApplicationId();
+    }
+
+    @Override
+    public ApplicationAttemptId getApplicationAttemptId() {
+      return appAttemptID;
+    }
+
+    @Override
+    public List<Container> getAllContainers() {
+      return allContainers;
+    }
+
+    @Override
+    public LinkedBlockingQueue<String> getMpiMsgQueue() {
+      return mpiMsgs;
+    }
   }
 }

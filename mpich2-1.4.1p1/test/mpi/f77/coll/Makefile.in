@@ -1,0 +1,90 @@
+# This Makefile.in created by simplemake.  Do not edit
+
+# @configure_input@
+
+# --------------------------------------------------------------------------
+all: all-redirect
+
+SHELL           = @SHELL@
+abs_builddir    = @abs_builddir@
+bindir          = @bindir@
+exec_prefix     = @exec_prefix@
+prefix          = @prefix@
+srcdir          = @srcdir@
+abs_srcdir      = @abs_srcdir@
+LIBS            = @LIBS@
+MAKE            = @MAKE@
+F77             = @F77@
+FFLAGS          = @FFLAGS@
+F77_COMPILE     = $(F77) $(FFLAGS) $(F77INCLUDES)
+F77_LINK       = $(F77)
+LDFLAGS     =  @LDFLAGS@ ../util/mtestf.o 
+
+VPATH = .:@srcdir@
+
+.SUFFIXES:
+.SUFFIXES: .o .f 
+.f.o:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  F77             $<" ; \
+	else \
+	  echo $(F77_COMPILE) -c $< ; \
+	fi
+	@$(F77_COMPILE) -c $<
+.f:
+	$(F77_COMPILE) -o $* $< $(LDFLAGS) $(LIBS)
+apply: 
+	$(ACTION) $(ACTION_INPUT)
+clean: 
+	-@rm -f *.o ${srcdir}/*.o inplacef allredint8f allredopttf reducelocalf uallreducef exscanf alltoallwf
+	-@rm -f inplacef.exe allredint8f.exe allredopttf.exe reducelocalf.exe uallreducef.exe exscanf.exe alltoallwf.exe
+	-@rm -f core core.[0-9]*
+	-@rm -f *.lo ${srcdir}/*.lo
+	-@rm -f *.irlog*
+distclean:  clean distclean-xxx remove-makefile
+distclean-xxx:
+	-@rm -f Makefile
+	-@rm -rf autom4te*.cache
+	-@rm -rf $(DEPS_DIR)
+	-@rm -f TAGS
+remove-makefile:
+	rm -f Makefile
+remove-genmakefiles:
+	rm -f  Makefile
+all-redirect: uallreducef exscanf alltoallwf inplacef allredint8f allredopttf reducelocalf
+
+inplacef: inplacef.o   @MPILIBLOC@ ../util/mtestf.o
+	$(F77_LINK) $(FFLAGS) $(LDFLAGS) -o inplacef inplacef.o  ${LIBS}
+allredint8f: allredint8f.o   @MPILIBLOC@ ../util/mtestf.o
+	$(F77_LINK) $(FFLAGS) $(LDFLAGS) -o allredint8f allredint8f.o  ${LIBS}
+allredopttf: allredopttf.o   @MPILIBLOC@ ../util/mtestf.o
+	$(F77_LINK) $(FFLAGS) $(LDFLAGS) -o allredopttf allredopttf.o  ${LIBS}
+reducelocalf: reducelocalf.o   @MPILIBLOC@ ../util/mtestf.o
+	$(F77_LINK) $(FFLAGS) $(LDFLAGS) -o reducelocalf reducelocalf.o  ${LIBS}
+uallreducef: uallreducef.o   @MPILIBLOC@ ../util/mtestf.o
+	$(F77_LINK) $(FFLAGS) $(LDFLAGS) -o uallreducef uallreducef.o  ${LIBS}
+exscanf: exscanf.o   @MPILIBLOC@ ../util/mtestf.o
+	$(F77_LINK) $(FFLAGS) $(LDFLAGS) -o exscanf exscanf.o  ${LIBS}
+alltoallwf: alltoallwf.o   @MPILIBLOC@ ../util/mtestf.o
+	$(F77_LINK) $(FFLAGS) $(LDFLAGS) -o alltoallwf alltoallwf.o  ${LIBS}
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+SOURCES         =  uallreducef.f exscanf.f alltoallwf.f inplacef.f allredint8f.f allredopttf.f \
+	reducelocalf.f 
+HEADERFILES     = $(HEADERS)
+SOURCEFILES     = $(SOURCES)
+# --------------------------------------------------------------------------
+
+
+testing:
+	../../runtests -srcdir=$(srcdir) -tests=testlist \
+			-mpiexec=$(bindir)/mpiexec \
+		   	-xmlfile=summary.xml
+../util/mtestf.o: 
+	(cd ../util && $(MAKE) mtestf.o)
+
+.POSIX:
+
+FORCE_TARGET:
+

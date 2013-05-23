@@ -1,0 +1,458 @@
+# This Makefile.in created by simplemake.  Do not edit
+
+# @configure_input@
+
+# --------------------------------------------------------------------------
+all: all-redirect
+
+SHELL           = @SHELL@
+AR              = @AR@
+AR_FLAGS        = @AR_FLAGS@
+RANLIB          = @RANLIB@
+INSTALL         = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_SCRIPT  = @INSTALL_SCRIPT@
+INSTALL_DATA    = @INSTALL_DATA@
+MKDIR_P         = @MKDIR_P@
+top_builddir    = @master_top_builddir@
+abs_builddir    = @abs_builddir@
+master_top_srcdir  = @master_top_srcdir@
+srcdir          = @srcdir@
+abs_srcdir      = @abs_srcdir@
+prefix          = @prefix@
+exec_prefix     = @exec_prefix@
+includedir      = @includedir@
+libdir          = @libdir@
+DEFS            = @DEFS@ -I. -I${srcdir}
+CPPFLAGS        = @CPPFLAGS@
+MAKE            = @MAKE@
+MPILIBNAME      = @MPILIBNAME@
+PMPILIBNAME     = @PMPILIBNAME@
+
+CC              = @CC@
+CFLAGS          = @CFLAGS@ $(MPICH2_MAKE_CFLAGS)
+C_COMPILE       = $(CC) $(DEFS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS)
+LIBTOOL         = @LIBTOOL@
+CC_SHL          = @CC_SHL@
+C_COMPILE_SHL   = $(CC_SHL) $(DEFS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS)
+FC               = @FC@
+FCFLAGS         = @FCFLAGS@
+FC_COMPILE      = $(FC) $(FCFLAGS) $(FCINCLUDES)
+FC_SHL          = @FC_SHL@
+FC_COMPILE_SHL = $(FC_SHL) $(FCFLAGS) $(FCINCLUDES)
+
+
+VPATH = .:@srcdir@
+MOD              = @FCMODEXT@
+MPIMOD           = @MPIMODNAME@
+MPICONSTMOD      = @MPICONSTMODNAME@
+MPISIZEOFMOD     = @MPISIZEOFMODNAME@
+MPIBASEMOD       = @MPIBASEMODNAME@
+FCINCFLAG        = @FCINCFLAG@
+FCEXT            = @FCEXT@
+FC_COMPILE_MODS  = $(FC_COMPILE)
+FCINCLUDES = @FCINCFLAG@.
+mpi_sources = create_f90_int.c create_f90_real.c \
+	create_f90_complex.c \
+        typef90cmplxf.c typef90realf.c typef90intf.c
+INCLUDES = -I../../include -I${master_top_srcdir}/src/include
+doc_sources =
+
+.SUFFIXES:
+.SUFFIXES: .o .lo .c .f90 .o 
+.c.o:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -c $< ; \
+	fi
+	@$(C_COMPILE) -c $<
+.c.lo:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c $< -o _s$*.o ; \
+	echo mv -f _s$*.o $*.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c $< -o _s$*.o
+	@mv -f _s$*.o $*.lo
+.c:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -o $* $< $(LDFLAGS) $(LIBS) ; \
+	fi
+	@$(C_COMPILE) -o $* $< $(LDFLAGS) $(LIBS)
+.f90.o:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  FC              $<" ; \
+	else \
+	  echo $(FC_COMPILE) -c $< ; \
+	fi
+	@$(FC_COMPILE) -c $<
+.f90.lo:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  FC              $<" ; \
+	else \
+	  echo $(FC_COMPILE_SHL) -c $< -o _s$*.o ; \
+	echo mv -f _s$*.o $*.lo ; \
+	fi
+	@$(FC_COMPILE_SHL) -c $< -o _s$*.o
+	@mv -f _s$*.o $*.lo
+.f90:
+	$(FC_COMPILE) -o $* $< $(LDFLAGS) $(LIBS)
+apply: 
+	$(ACTION) $(ACTION_INPUT)
+clean:  clean-local
+	-@rm -f *.o ${srcdir}/*.o 
+	-@rm -f .libstamp0 .libstamp1 .libstamp2 .libstamp3 .libstamp4 .libstamp5 
+	-@rm -f *.lo ${srcdir}/*.lo
+distclean:  clean distclean-local distclean-xxx remove-makefile
+distclean-xxx:
+	-@rm -f Makefile mpi_sizeofs.f90 mpi_base.f90 mpif90model.h config.status config.log config.cache *conf.cache config.system
+	-@rm -rf autom4te*.cache
+	-@rm -rf $(DEPS_DIR)
+	-@rm -f TAGS
+remove-makefile:
+	rm -f Makefile
+remove-genmakefiles:
+	rm -f  Makefile
+all-redirect: all-preamble .libstamp0 ../../../lib/lib${MPILIBNAME}.a lib${MPILIBNAME}f90.a
+	@if [ -n "@NO_WEAK_SYM@" ] ; then \
+	    ${MAKE} .libstamp2 || exit 1; \
+	fi
+	@if [ "@ENABLE_SHLIB@" != "none" ] ; then \
+	    ${MAKE} .libstamp1 || exit 1; \
+	    ${MAKE} lib${MPILIBNAME}f90.la || exit 1; \
+	    if [ -n "@NO_WEAK_SYM@" ] ; then \
+	        ${MAKE} .libstamp3 || exit 1; \
+	    fi ; \
+	fi
+	${MAKE} all-postamble
+
+lib${MPILIBNAME}f90.a: mpi.o mpi_constants.o mpi_sizeofs.o mpi_base.o 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} lib${MPILIBNAME}f90.a $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} lib${MPILIBNAME}f90.a $? ; \
+	fi
+	@${AR} ${AR_FLAGS} lib${MPILIBNAME}f90.a $?
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  RANLIB          lib${MPILIBNAME}f90.a" ; \
+	else \
+	  echo ${RANLIB} lib${MPILIBNAME}f90.a ; \
+	fi
+	@${RANLIB} lib${MPILIBNAME}f90.a
+.libstamp0 ../../../lib/lib${MPILIBNAME}.a: create_f90_int.o create_f90_real.o \
+	create_f90_complex.o typef90cmplxf.o typef90realf.o typef90intf.o create_f90_util.o 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.a $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.a $? ; \
+	fi
+	@${AR} ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.a $?
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  RANLIB          lib${MPILIBNAME}.a" ; \
+	else \
+	  echo ${RANLIB} ../../../lib/lib${MPILIBNAME}.a ; \
+	fi
+	@${RANLIB} ../../../lib/lib${MPILIBNAME}.a
+	date > .libstamp0
+lib${MPILIBNAME}f90.la: mpi.lo mpi_constants.lo mpi_sizeofs.lo mpi_base.lo 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} lib${MPILIBNAME}f90.la $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} lib${MPILIBNAME}f90.la $? ; \
+	fi
+	@${AR} ${AR_FLAGS} lib${MPILIBNAME}f90.la $?
+.libstamp1 ../../../lib/lib${MPILIBNAME}.la: create_f90_int.lo create_f90_real.lo \
+	create_f90_complex.lo typef90cmplxf.lo typef90realf.lo typef90intf.lo create_f90_util.lo 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.la $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.la $? ; \
+	fi
+	@${AR} ${AR_FLAGS} ../../../lib/lib${MPILIBNAME}.la $?
+	date > .libstamp1
+
+# --------------------------------------------------------------------------
+.libstamp2: _create_f90_int.o _create_f90_real.o _create_f90_complex.o _typef90cmplxf.o _typef90realf.o \
+	_typef90intf.o 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} ../../../lib/libp${MPILIBNAME}.a $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} ../../../lib/libp${MPILIBNAME}.a $? ; \
+	fi
+	@${AR} ${AR_FLAGS} ../../../lib/libp${MPILIBNAME}.a $?
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  RANLIB          libp${MPILIBNAME}.a" ; \
+	else \
+	  echo ${RANLIB} ../../../lib/libp${MPILIBNAME}.a ; \
+	fi
+	@${RANLIB} ../../../lib/libp${MPILIBNAME}.a
+	date > .libstamp2
+.libstamp3: _create_f90_int.lo _create_f90_real.lo _create_f90_complex.lo _typef90cmplxf.lo _typef90realf.lo \
+	_typef90intf.lo 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} ../../../lib/libp${MPILIBNAME}.la $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} ../../../lib/libp${MPILIBNAME}.la $? ; \
+	fi
+	@${AR} ${AR_FLAGS} ../../../lib/libp${MPILIBNAME}.la $?
+	date > .libstamp3
+_create_f90_int.o: create_f90_int.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/create_f90_int.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_int.c -o _create_f90_int.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_int.c -o _create_f90_int.o
+_create_f90_int.lo: create_f90_int.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/create_f90_int.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_int.c -o _create_f90_int.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_int.c -o _create_f90_int.lo
+_create_f90_real.o: create_f90_real.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/create_f90_real.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_real.c -o _create_f90_real.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_real.c -o _create_f90_real.o
+_create_f90_real.lo: create_f90_real.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/create_f90_real.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_real.c -o _create_f90_real.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_real.c -o _create_f90_real.lo
+_create_f90_complex.o: create_f90_complex.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/create_f90_complex.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_complex.c -o _create_f90_complex.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_complex.c -o _create_f90_complex.o
+_create_f90_complex.lo: create_f90_complex.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/create_f90_complex.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_complex.c -o _create_f90_complex.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/create_f90_complex.c -o _create_f90_complex.lo
+_typef90cmplxf.o: typef90cmplxf.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/typef90cmplxf.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90cmplxf.c -o _typef90cmplxf.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90cmplxf.c -o _typef90cmplxf.o
+_typef90cmplxf.lo: typef90cmplxf.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/typef90cmplxf.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90cmplxf.c -o _typef90cmplxf.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90cmplxf.c -o _typef90cmplxf.lo
+_typef90realf.o: typef90realf.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/typef90realf.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90realf.c -o _typef90realf.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90realf.c -o _typef90realf.o
+_typef90realf.lo: typef90realf.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/typef90realf.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90realf.c -o _typef90realf.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90realf.c -o _typef90realf.lo
+_typef90intf.o: typef90intf.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC             -D<profiling> ${srcdir}/typef90intf.c" ; \
+	else \
+	  echo $(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90intf.c -o _typef90intf.o ; \
+	fi
+	@$(C_COMPILE) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90intf.c -o _typef90intf.o
+_typef90intf.lo: typef90intf.c
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo " CC           -D<profiling> $(srcdir)/typef90intf.c" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90intf.c -o _typef90intf.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c @PROFILE_DEF_MPI@ $(srcdir)/typef90intf.c -o _typef90intf.lo
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Install target
+install:  FORCE_TARGET 
+	if [ ! -d ${DESTDIR}${prefix} ] ; then $(MKDIR_P) ${DESTDIR}${prefix} ; fi
+	if [ ! -d ${DESTDIR}${includedir} ] ; then $(MKDIR_P) ${DESTDIR}${includedir} ; fi
+	$(INSTALL_DATA)  $(MPIMOD).$(MOD) ${DESTDIR}${includedir}/$(MPIMOD).$(MOD)
+	$(INSTALL_DATA)  $(MPICONSTMOD).$(MOD) ${DESTDIR}${includedir}/$(MPICONSTMOD).$(MOD)
+	$(INSTALL_DATA)  $(MPIBASEMOD).$(MOD) ${DESTDIR}${includedir}/$(MPIBASEMOD).$(MOD)
+	$(INSTALL_DATA)  $(MPISIZEOFMOD).$(MOD) ${DESTDIR}${includedir}/$(MPISIZEOFMOD).$(MOD)
+	if [ ! -d ${DESTDIR}${exec_prefix} ] ; then $(MKDIR_P) ${DESTDIR}${exec_prefix} ; fi
+	if [ ! -d ${DESTDIR}${libdir} ] ; then $(MKDIR_P) ${DESTDIR}${libdir} ; fi
+	$(INSTALL_DATA)  lib${MPILIBNAME}f90.a ${DESTDIR}${libdir}/lib${MPILIBNAME}f90.a
+	if [ -s mpimod.pcl ] ; then $(INSTALL_DATA)  mpimod.pcl ${DESTDIR}${includedir}/mpimod.pcl ; fi
+	if [ -s mpimod.pc ] ; then $(INSTALL_DATA)  mpimod.pc ${DESTDIR}${includedir}/mpimod.pc ; fi
+
+install-strip:
+	$(MAKE) INSTALL_STRIP_FLAG=-s install
+uninstall: 
+	-rm -f ${DESTDIR}${includedir}/$(MPIMOD).$(MOD)
+	-rm -f ${DESTDIR}${includedir}/$(MPICONSTMOD).$(MOD)
+	-rm -f ${DESTDIR}${includedir}/$(MPIBASEMOD).$(MOD)
+	-rm -f ${DESTDIR}${includedir}/$(MPISIZEOFMOD).$(MOD)
+	-rm -f ${DESTDIR}${libdir}/lib${MPILIBNAME}f90.a
+	-rm -f ${DESTDIR}${includedir}/mpimod.pcl
+	-rm -f ${DESTDIR}${includedir}/mpimod.pc
+installcheck: 
+# --------------------------------------------------------------------------
+dependencies:
+# --------------------------------------------------------------------------
+SOURCES         =  create_f90_int.c create_f90_real.c create_f90_complex.c typef90cmplxf.c \
+	typef90realf.c typef90intf.c create_f90_util.c 
+HEADERFILES     = $(HEADERS)
+SOURCEFILES     = $(SOURCES)
+# --------------------------------------------------------------------------
+# DO NOT EDIT
+# This file created by buildiface 
+# We need to tell some compilers (e.g., Solaris f90) to look in the current 
+# directory when the source file is not in the working directory (i.e.,
+# in a VPATH build)
+
+
+all-preamble: $(MPIMOD).$(MOD)
+
+# The copy line in this step makes the Fortran90 modules available to
+# the mpif90 script before an install takes place
+# The if handles the Intel Fortran90 compiler, which has an unusual interface
+# (The mpimod.pcl file should contain only a local mpimod.pc name; if
+# it contains a file name in another directory and that file does not 
+# exist, the compiler may refuse to compile the file)
+#
+# FIXME: We may want to edit the mpif.h to convert Fortran77-specific
+# items (such as an integer*8 used for file offsets) into the 
+# corresponding Fortran 90 KIND type, to accomodate compilers that
+# reject non-standard features such as integer*8 (such as the Intel
+# Fortran compiler with -std95).
+# We need the MPI constants in a separate module for some of the
+# interface definitions (the ones that need MPI_ADDRESS_KIND or
+# MPI_OFFSET_KIND)
+
+$(MPIMOD).$(MOD): $(MPICONSTMOD).$(MOD) $(MPISIZEOFMOD).$(MOD) \
+		  $(MPIBASEMOD).$(MOD) $(srcdir)/mpi.f90 mpifnoext.h
+	@if [ -n "@FC_WORK_FILES_ARG@" ] ; then \
+	    rm -f mpimod.pc mpimod.pcl ; \
+	    echo "mpimod.pc" > mpimod.pcl ; \
+	    echo $(FC_COMPILE_MODS) @FC_WORK_FILES_ARG@ -c $(srcdir)/mpi.f90 ; \
+	    $(FC_COMPILE_MODS) @FC_WORK_FILES_ARG@ -c $(srcdir)/mpi.f90 ; \
+	    cp mpimod.pc ../../../src/include/mpimod.pc ; \
+	    cp mpimod.pcl ../../../src/include/mpimod.pcl ; \
+	else \
+	    if [ "$(FCEXT)" != "f90" ] ; then \
+	        ln -f -s $(srcdir)/mpi.f90 $(srcdir)/mpi.$(FCEXT) ; \
+	    fi ; \
+	    echo $(FC_COMPILE_MODS) -c $(srcdir)/mpi.$(FCEXT) ; \
+	    $(FC_COMPILE_MODS) -c $(srcdir)/mpi.$(FCEXT) ; \
+	    if [ "$(FCEXT)" != "f90" ] ; then \
+	        rm -f $(srcdir)/mpi.$(FCEXT) ; \
+	    fi ; \
+	fi
+$(MPICONSTMOD).$(MOD): $(srcdir)/mpi_constants.f90 mpifnoext.h
+	@if [ -n "@FC_WORK_FILES_ARG@" ] ; then \
+	    rm -f mpimod.pc mpimod.pcl ; \
+	    echo "mpimod.pc" > mpimod.pcl ; \
+	    echo $(FC_COMPILE_MODS) @FC_WORK_FILES_ARG@ -c $(srcdir)/mpi_constants.f90 ; \
+	    $(FC_COMPILE_MODS) @FC_WORK_FILES_ARG@ -c $(srcdir)/mpi_constants.f90 ; \
+	    cp mpimod.pc ../../../src/include/mpimod.pc ; \
+	    cp mpimod.pcl ../../../src/include/mpimod.pcl ; \
+	else \
+	    if [ "$(FCEXT)" != "f90" ] ; then \
+	        ln -f -s $(srcdir)/mpi_constants.f90 $(srcdir)/mpi_constants.$(FCEXT) ; \
+	    fi ; \
+	    echo $(FC_COMPILE_MODS) -c $(srcdir)/mpi_constants.$(FCEXT) ; \
+	    $(FC_COMPILE_MODS) -c $(srcdir)/mpi_constants.$(FCEXT) ; \
+	    if [ "$(FCEXT)" != "f90" ] ; then \
+	        rm -f $(srcdir)/mpi_constants.$(FCEXT) ; \
+	    fi ; \
+	fi
+$(MPISIZEOFMOD).$(MOD): mpi_sizeofs.f90 mpifnoext.h
+	@if [ -n "@FC_WORK_FILES_ARG@" ] ; then \
+	    rm -f mpimod.pc mpimod.pcl ; \
+	    echo "mpimod.pc" > mpimod.pcl ; \
+	    echo $(FC_COMPILE_MODS) @FC_WORK_FILES_ARG@ -c mpi_sizeofs.f90 ; \
+	    $(FC_COMPILE_MODS) @FC_WORK_FILES_ARG@ -c mpi_sizeofs.f90 ; \
+	    cp mpimod.pc ../../../src/include/mpimod.pc ; \
+	    cp mpimod.pcl ../../../src/include/mpimod.pcl ; \
+	else \
+	    if [ "$(FCEXT)" != "f90" ] ; then \
+	        ln -f -s mpi_sizeofs.f90 mpi_sizeofs.$(FCEXT) ; \
+	    fi ; \
+	    echo $(FC_COMPILE_MODS) -c mpi_sizeofs.$(FCEXT) ; \
+	    $(FC_COMPILE_MODS) -c mpi_sizeofs.$(FCEXT) ; \
+	    if [ "$(FCEXT)" != "f90" ] ; then \
+	        rm -f mpi_sizeofs.$(FCEXT) ; \
+	    fi ; \
+	fi
+$(MPIBASEMOD).$(MOD): mpi_base.f90
+	@if [ -n "@FC_WORK_FILES_ARG@" ] ; then \
+	    rm -f mpimod.pc mpimod.pcl ; \
+	    echo "mpimod.pc" > mpimod.pcl ; \
+	    echo $(FC_COMPILE_MODS) @FC_WORK_FILES_ARG@ -c mpi_base.f90 ; \
+	    $(FC_COMPILE_MODS) @FC_WORK_FILES_ARG@ -c mpi_base.f90 ; \
+	    cp mpimod.pc ../../../src/include/mpimod.pc ; \
+	    cp mpimod.pcl ../../../src/include/mpimod.pcl ; \
+	else \
+	    if [ "$(FCEXT)" != "f90" ] ; then \
+	        ln -f -s mpi_base.f90 mpi_base.$(FCEXT) ; \
+	    fi ; \
+	    echo $(FC_COMPILE_MODS) -c mpi_base.$(FCEXT) ; \
+	    $(FC_COMPILE_MODS) -c mpi_base.$(FCEXT) ; \
+	    if [ "$(FCEXT)" != "f90" ] ; then \
+	        rm -f mpi_base.$(FCEXT) ; \
+	    fi ; \
+	fi
+
+# We need a free-format version of mpif.h with no external commands,
+# including no wtime/wtick (removing MPI_WTICK also removes MPI_WTIME, 
+# but leave MPI_WTIME_IS_GLOBAL).
+# Also allow REAL*8 or DOUBLE PRECISION for the MPI_WTIME/MPI_WTICK 
+# declarations
+mpifnoext.h: ../f77/mpif.h
+	rm -f mpifnoext.h
+	sed -e 's/^C/\!/g' -e '/EXTERNAL/d' \
+                -e '/REAL\*8/d' \
+		-e '/DOUBLE PRECISION/d' \
+		-e '/MPI_WTICK/d' ../f77/mpif.h > mpifnoext.h
+
+# To ensure that f90 can be used before a make-install step, we copy
+# the library to the build directory (just like we do with the module files)
+all-postamble:
+	if [ -s lib${MPILIBNAME}f90.a ] ; then \
+	   cp -p lib${MPILIBNAME}f90.a ../../../lib ; fi
+	if [ -s lib${MPILIBNAME}f90.la ] ; then \
+	   cp -p lib${MPILIBNAME}f90.la ../../../lib ; fi
+clean-local:
+	rm -f *.$(MOD)
+	rm -f mpimod.pcl mpimod.pc
+	rm -f lib${MPILIBNAME}f90.a
+maint-clean:
+	rm -f ${mpi_sources} fproto.h
+# Documentation sources
+distclean-local:
+	rm -f lib${MPILIBNAME}f90.a
+	rm -f ../../../bin/mpif90
+	rm -f ../../../src/include/$(MPIMOD).$(MOD)
+	rm -f ../../../src/include/$(MPIBASEMOD).$(MOD)
+	rm -f ../../../src/include/$(MPICONSTMOD).$(MOD)
+	rm -f ../../../src/include/$(MPISIZEOFMOD).$(MOD)
+
+.POSIX:
+
+FORCE_TARGET:
+

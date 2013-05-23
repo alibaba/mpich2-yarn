@@ -1,0 +1,174 @@
+# This Makefile.in created by simplemake.  Do not edit
+
+# @configure_input@
+
+# --------------------------------------------------------------------------
+all: all-redirect
+
+SHELL           = @SHELL@
+AR              = @AR@
+AR_FLAGS        = @AR_FLAGS@
+RANLIB          = @RANLIB@
+INSTALL         = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_SCRIPT  = @INSTALL_SCRIPT@
+INSTALL_DATA    = @INSTALL_DATA@
+MKDIR_P         = @MKDIR_P@
+top_builddir    = @master_top_builddir@
+abs_builddir    = @abs_builddir@
+master_top_srcdir  = @master_top_srcdir@
+srcdir          = @srcdir@
+abs_srcdir      = @abs_srcdir@
+prefix          = @prefix@
+exec_prefix     = @exec_prefix@
+bindir          = @bindir@
+DEFS            = @DEFS@ -I. -I${srcdir}
+CPPFLAGS        = @CPPFLAGS@
+LIBS            = @LIBS@
+MAKE            = @MAKE@
+MPILIBNAME      = @MPILIBNAME@
+PMPILIBNAME     = @PMPILIBNAME@
+
+CC              = @CC@
+CFLAGS          = @CFLAGS@ $(MPICH2_MAKE_CFLAGS)
+C_COMPILE       = $(CC) $(DEFS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS)
+C_LINK         = $(CC)
+LIBTOOL         = @LIBTOOL@
+CC_SHL          = @CC_SHL@
+C_COMPILE_SHL   = $(CC_SHL) $(DEFS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS)
+LDFLAGS     =  @LDFLAGS@ 
+
+VPATH = .:@srcdir@
+INCLUDES = -I../../../include -I${master_top_srcdir}/src/include -I../../../mpi/timer -I../common -I${master_top_srcdir}/src/util/logging/common
+
+.SUFFIXES:
+.SUFFIXES: .o .lo .c 
+.c.o:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -c $< ; \
+	fi
+	@$(C_COMPILE) -c $<
+.c.lo:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE_SHL) -c $< -o _s$*.o ; \
+	echo mv -f _s$*.o $*.lo ; \
+	fi
+	@$(C_COMPILE_SHL) -c $< -o _s$*.o
+	@mv -f _s$*.o $*.lo
+.c:
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  CC              $<" ; \
+	else \
+	  echo $(C_COMPILE) -o $* $< $(LDFLAGS) $(LIBS) ; \
+	fi
+	@$(C_COMPILE) -o $* $< $(LDFLAGS) $(LIBS)
+apply: 
+	$(ACTION) $(ACTION_INPUT)
+clean: 
+	-@rm -f *.o ${srcdir}/*.o printrlog printirlog minalignrlog irlog2rlog
+	-@rm -f .libstamp0 .libstamp1 
+	-@rm -f printrlog.exe printirlog.exe minalignrlog.exe irlog2rlog.exe
+	-@rm -f core core.[0-9]*
+	-@rm -f *.lo ${srcdir}/*.lo
+	-@rm -f *.irlog*
+distclean:  clean distclean-local distclean-xxx remove-makefile
+distclean-xxx:
+	-@rm -f Makefile pprintirlog config.status config.log config.cache *conf.cache config.system
+	-@rm -rf autom4te*.cache
+	-@rm -f rlogconf.h
+	-@rm -rf $(DEPS_DIR)
+	-@rm -f TAGS
+remove-makefile:
+	rm -f Makefile
+remove-genmakefiles:
+	rm -f  Makefile
+all-redirect: .libstamp0 ../../../../lib/lib${MPILIBNAME}.a
+	@if [ "@ENABLE_SHLIB@" != "none" ] ; then \
+	    ${MAKE} .libstamp1 || exit 1; \
+	fi
+
+.libstamp0 ../../../../lib/lib${MPILIBNAME}.a: rlog.o rlogutil.o rlogtime.o irlogutil.o 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} ../../../../lib/lib${MPILIBNAME}.a $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} ../../../../lib/lib${MPILIBNAME}.a $? ; \
+	fi
+	@${AR} ${AR_FLAGS} ../../../../lib/lib${MPILIBNAME}.a $?
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  RANLIB          lib${MPILIBNAME}.a" ; \
+	else \
+	  echo ${RANLIB} ../../../../lib/lib${MPILIBNAME}.a ; \
+	fi
+	@${RANLIB} ../../../../lib/lib${MPILIBNAME}.a
+	date > .libstamp0
+.libstamp1 ../../../../lib/lib${MPILIBNAME}.la: rlog.lo rlogutil.lo rlogtime.lo irlogutil.lo 
+	@if [ "x$(VERBOSE)" != "x1" -a "x$(V)" != "x1" ] ; then \
+	  echo "  AR ${AR_FLAGS} ../../../../lib/lib${MPILIBNAME}.la $?" ; \
+	else \
+	  echo ${AR} ${AR_FLAGS} ../../../../lib/lib${MPILIBNAME}.la $? ; \
+	fi
+	@${AR} ${AR_FLAGS} ../../../../lib/lib${MPILIBNAME}.la $?
+	date > .libstamp1
+printrlog: printrlog.o   
+	$(C_LINK) $(CFLAGS) $(LDFLAGS) -o printrlog printrlog.o  -L../../../../lib \
+	-l${MPILIBNAME} -lmpl ${LIBS} 
+printirlog: printirlog.o   
+	$(C_LINK) $(CFLAGS) $(LDFLAGS) -o printirlog printirlog.o  -L../../../../lib \
+	-l${MPILIBNAME} -lmpl ${LIBS} 
+minalignrlog: minalignrlog.o   
+	$(C_LINK) $(CFLAGS) $(LDFLAGS) -o minalignrlog minalignrlog.o  -L../../../../lib \
+	-l${MPILIBNAME} -lmpl ${LIBS} 
+irlog2rlog: irlog2rlog.o   
+	$(C_LINK) $(CFLAGS) $(LDFLAGS) -o irlog2rlog irlog2rlog.o  -L../../../../lib \
+	-l${MPILIBNAME} -lmpl ${LIBS} 
+# --------------------------------------------------------------------------
+# Install target
+install:  install-preamble FORCE_TARGET 
+	if [ ! -d ${DESTDIR}${exec_prefix} ] ; then $(MKDIR_P) ${DESTDIR}${exec_prefix} ; fi
+	if [ ! -d ${DESTDIR}${prefix} ] ; then $(MKDIR_P) ${DESTDIR}${prefix} ; fi
+	if [ ! -d ${DESTDIR}${bindir} ] ; then $(MKDIR_P) ${DESTDIR}${bindir} ; fi
+	$(INSTALL_PROGRAM) $(INSTALL_STRIP_FLAG)  printrlog ${DESTDIR}${bindir}/printrlog
+	$(INSTALL_PROGRAM) $(INSTALL_STRIP_FLAG)  printirlog ${DESTDIR}${bindir}/printirlog
+	$(INSTALL_PROGRAM) $(INSTALL_STRIP_FLAG)  irlog2rlog ${DESTDIR}${bindir}/irlog2rlog
+	if [ -s irlog2rlog ] ; then $(INSTALL_PROGRAM) $(INSTALL_STRIP_FLAG)  irlog2rlog ${DESTDIR}${bindir}/irlog2rlog ; fi
+	if [ -s printirlog ] ; then $(INSTALL_PROGRAM) $(INSTALL_STRIP_FLAG)  printirlog ${DESTDIR}${bindir}/printirlog ; fi
+	if [ -s printrlog ] ; then $(INSTALL_PROGRAM) $(INSTALL_STRIP_FLAG)  printrlog ${DESTDIR}${bindir}/printrlog ; fi
+	if [ -s minalignrlog ] ; then $(INSTALL_PROGRAM) $(INSTALL_STRIP_FLAG)  minalignrlog ${DESTDIR}${bindir}/minalignrlog ; fi
+
+install-strip:
+	$(MAKE) INSTALL_STRIP_FLAG=-s install
+uninstall: 
+	-rm -f ${DESTDIR}${bindir}/printrlog
+	-rm -f ${DESTDIR}${bindir}/printirlog
+	-rm -f ${DESTDIR}${bindir}/irlog2rlog
+	-rm -f ${DESTDIR}${bindir}/irlog2rlog
+	-rm -f ${DESTDIR}${bindir}/printirlog
+	-rm -f ${DESTDIR}${bindir}/printrlog
+	-rm -f ${DESTDIR}${bindir}/minalignrlog
+installcheck: 
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+SOURCES         =  rlog.c rlogutil.c rlogtime.c irlogutil.c irlog2rlog.c printirlog.c printrlog.c \
+	minalignrlog.c 
+HEADERFILES     = $(HEADERS)
+SOURCEFILES     = $(SOURCES)
+# --------------------------------------------------------------------------
+#SUBDIRS = TraceInput .
+# These programs require some of the utilities used by the MPICH library.
+# They are not MPI programs and they do not require MPI-specific services
+
+# We can't build these until after the MPI libraries are completed
+
+install-preamble:  irlog2rlog printirlog printrlog minalignrlog
+
+distclean-local:
+	@-rm -f rlogconf.h
+
+.POSIX:
+
+FORCE_TARGET:
+
