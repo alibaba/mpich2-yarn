@@ -118,8 +118,6 @@ hadoop fs -mkdir /group/dc/zhuoluo.yzl/plda\_input
 
 hadoop fs -put plda/testdata/test\_data.txt /group/dc/zhuoluo.yzl/plda\_input/
 
-hadoop jar mpich2-yarn-1.0-SNAPSHOT.jar -a plda/mpi\_lda -M 1024 -m 1024 -n 2\
-
-          -o "--num_topics 2 --alpha 0.1 --beta 0.01 --training_data_file MPIFILE1 --model_file MPIOUTFILE1 --total_iterations 150"\
-
-           -DMPIFILE1=/group/dc/zhuoluo.yzl/plda_input -SMPIFILE1=true -OMPIOUTFILE1=/group/dc/zhuoluo.yzl/lda_model_output.txt -ppc 2
+ hadoop jar mpich2-yarn-1.0-SNAPSHOT.jar -a plda/mpi\_lda -M 1024 -m 1024 -n 2\
+  -o "--num_topics 2 --alpha 0.1 --beta 0.01 --training_data_file MPIFILE1 --model_file MPIOUTFILE1 --total_iterations 150"\
+  -DMPIFILE1=/group/dc/zhuoluo.yzl/plda_input -SMPIFILE1=true -OMPIOUTFILE1=/group/dc/zhuoluo.yzl/lda_model_output.txt -ppc 2
