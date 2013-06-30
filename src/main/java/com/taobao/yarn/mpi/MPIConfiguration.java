@@ -67,6 +67,10 @@ public class MPIConfiguration extends YarnConfiguration {
 
   public static final long DEFAULT_MPI_CONTAINER_LOG_SIZE = Long.MAX_VALUE;
 
+  public static final String MPI_SCRATCH_DIR = "yarn.mpi.scratch.dir";
+
+  public static final String DEFAULT_MPI_SCRATCH_DIR = "hdfs://hdpnn/group/dc/mpi-tmp";
+
   public static final String[] DEFAULT_MPI_APPLICATION_CLASSPATH = {
     "$HADOOP_CONF_DIR", "$HADOOP_COMMON_HOME/share/hadoop/common/*",
     "$HADOOP_COMMON_HOME/share/hadoop/common/lib/*",

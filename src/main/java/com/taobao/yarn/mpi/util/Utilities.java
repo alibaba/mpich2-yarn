@@ -50,7 +50,6 @@ import org.apache.hadoop.yarn.util.Records;
 
 import com.taobao.yarn.mpi.MPIConfiguration;
 import com.taobao.yarn.mpi.api.MPIClientProtocol;
-import com.taobao.yarn.mpi.server.MPDProtocol;
 
 public final class Utilities {
   private static Log LOG = LogFactory.getLog(Utilities.class);
@@ -410,10 +409,10 @@ public final class Utilities {
    * @param filename file name
    * @return the Path instance
    */
-  public static Path getAppFile(FileSystem dfs, String appName, ApplicationId appId, String filename) {
+  public static Path getAppFile(MPIConfiguration conf, String appName, ApplicationId appId, String filename) {
     String pathSuffix = appName + "/" + appId.getId() + "/" + filename;
-    // TODO should we use Home Directory?
-    Path result = new Path(dfs.getHomeDirectory(), pathSuffix);
+    Path result = new Path(conf.get(MPIConfiguration.MPI_SCRATCH_DIR, MPIConfiguration.DEFAULT_MPI_SCRATCH_DIR),
+        pathSuffix);
     return result;
   }
 
@@ -425,7 +424,7 @@ public final class Utilities {
    * @throws YarnRemoteException
    */
   public static ApplicationReport getApplicationReport(ApplicationId appId, ClientRMProtocol applicationsManager)
-  throws YarnRemoteException {
+      throws YarnRemoteException {
     RecordFactory recordFactory = RecordFactoryProvider.getRecordFactory(null);
     GetApplicationReportRequest request = recordFactory.newRecordInstance(GetApplicationReportRequest.class);
     request.setApplicationId(appId);

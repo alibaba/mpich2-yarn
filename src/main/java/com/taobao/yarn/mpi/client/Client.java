@@ -427,7 +427,7 @@ public class Client {
     // Copy the application master jar to the filesystem
     // Create a local resource to point to the destination jar path
     Path appJarSrc = new Path(appMasterJar);
-    Path appJarDst = Utilities.getAppFile(dfs, appName, appId, "AppMaster.jar");
+    Path appJarDst = Utilities.getAppFile(conf, appName, appId, "AppMaster.jar");
     LOG.info("Source path: " + appJarSrc.toString());
     LOG.info("Destination path: " + appJarDst.toString());
     dfs.copyFromLocalFile(false, true, appJarSrc, appJarDst);
@@ -453,7 +453,7 @@ public class Client {
     LOG.info("Copy MPI application from local filesystem to remote.");
     assert(!mpiApplication.isEmpty());
     Path mpiAppSrc = new Path(mpiApplication);
-    Path mpiAppDst = Utilities.getAppFile(dfs, appName, appId, "MPIExec");
+    Path mpiAppDst = Utilities.getAppFile(conf, appName, appId, "MPIExec");
     LOG.info("Source path: " + mpiAppSrc.toString());
     LOG.info("Destination path: " + mpiAppDst.toString());
     dfs.copyFromLocalFile(false, true, mpiAppSrc, mpiAppDst);
