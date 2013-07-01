@@ -57,10 +57,10 @@ will be distributed automatically while summiting an MPI Application.
 
 Configure the following environment:
 
-    export HADOOP\_HOME=/home/<USERNAME>/hadoop-current
-    export HADOOP\_CONF\_DIR=/home/<USERNAME>/hadoop-conf
-    export MPI\_HOME=/home/<USERNAME>/mpich2-install
-    export PATH=$MP\_HOME/bin:$HADOOP\_HOME:$PATH
+    export HADOOP_HOME=/home/<USERNAME>/hadoop-current
+    export HADOOP_CONF_DIR=/home/<USERNAME>/hadoop-conf
+    export MPI_HOME=/home/<USERNAME>/mpich2-install
+    export PATH=$MPI_HOME/bin:$HADOOP_HOME:$PATH
 
 Enter $HADOOP\_CONF\_DIF and create mpi-site.xml:
 
@@ -78,8 +78,8 @@ The hdfs path will save the mpi works and appmasters.
 
 Put the following lines the on the path of the node managers.
 
-    export MPI\_HOME=/home/<USERNAME>/mpich2-install
-    export PATH=$MP\_HOME/bin
+    export MPI_HOME=/home/<USERNAME>/mpich2-install
+    export PATH=$MP_HOME/bin
 
 #Submit Jobs
 
