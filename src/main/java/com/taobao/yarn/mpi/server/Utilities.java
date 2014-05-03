@@ -1,5 +1,6 @@
 package com.taobao.yarn.mpi.server;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -70,7 +71,7 @@ public final class Utilities {
    * Ask RM to allocate given no. of containers to this Application Master
    * @param requestedContainers Containers to ask for from RM
    * @return Response from RM to AM with allocated containers
-   * @throws YarnException
+   * @throws YarnException, IOException
    */
   public static AllocateResponse sendContainerAskToRM(
       AtomicInteger rmRequestID,
@@ -78,7 +79,7 @@ public final class Utilities {
       ApplicationMasterProtocol resourceManager,
       List<ResourceRequest> requestedContainers,
       List<ContainerId> releasedContainers,
-      float progress) throws YarnException {
+      float progress) throws YarnException, IOException {
     AllocateRequest req = AllocateRequest.newInstance(
         rmRequestID.incrementAndGet(), progress,
         requestedContainers, releasedContainers, null);
