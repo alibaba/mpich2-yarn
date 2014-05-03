@@ -1,5 +1,6 @@
 package com.taobao.yarn.mpi.allocator;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -79,44 +80,50 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
       }
 
       // Send request to RM
-      LOG.info(String.format("Asking RM for %d containers", askCount));
-      AllocateResponse amResp = Utilities.sendContainerAskToRM(
-          rmRequestID,
-          appAttemptID,
-          resourceManager,
-          resourceReq,
-          new ArrayList<ContainerId>(),
-          progress);
-      // Retrieve list of allocated containers from the response
-      List<Container> allocatedContainers = amResp.getAllocatedContainers();
-      LOG.info(String.format("Got response from RM for container ask, allocatedCount=%d",
-          allocatedContainers.size()));
-      numAllocatedContainers.addAndGet(allocatedContainers.size());
-      numProcessCanRun.addAndGet(allocatedContainers.size());
+      try {
+        LOG.info(String.format("Asking RM for %d containers", askCount));
+        AllocateResponse amResp = Utilities.sendContainerAskToRM(
+            rmRequestID,
+            appAttemptID,
+            resourceManager,
+            resourceReq,
+            new ArrayList<ContainerId>(),
+            progress);
+        // Retrieve list of allocated containers from the response
+        List<Container> allocatedContainers = amResp.getAllocatedContainers();
+        LOG.info(String.format("Got response from RM for container ask, allocatedCount=%d",
+            allocatedContainers.size()));
+        numAllocatedContainers.addAndGet(allocatedContainers.size());
+        numProcessCanRun.addAndGet(allocatedContainers.size());
 
-      // Allocation complete, we will reduce numContainer
-      if (numAllocatedContainers.get() >= numContainer) {
-        for (Container allocatedContainer : allocatedContainers) {
-          LOG.info("AllocatedContainer: Id=" + allocatedContainer.getId()
-              + ", NodeId=" + allocatedContainer.getNodeId()
-              + ", Host=" + allocatedContainer.getNodeId().getHost());
-          String host = allocatedContainer.getNodeId().getHost();
-          if (!hostToContainer.containsKey(host)) {
-            hostToContainer.put(host, allocatedContainer);
-            hostToProcNum.put(host, new Integer(1));
-            result.add(allocatedContainer);
-          } else {
-            Container container = hostToContainer.get(host);
-            int procNum = hostToProcNum.get(host).intValue();
-            procNum++;
-            hostToProcNum.put(host, new Integer(procNum));
-            // TODO check if this works
-            container.getResource().setMemory(procNum * containerMemory);
-            //allocatedContainer.setState(ContainerState.COMPLETE);
+        // Allocation complete, we will reduce numContainer
+        if (numAllocatedContainers.get() >= numContainer) {
+          for (Container allocatedContainer : allocatedContainers) {
+            LOG.info("AllocatedContainer: Id=" + allocatedContainer.getId()
+                + ", NodeId=" + allocatedContainer.getNodeId()
+                + ", Host=" + allocatedContainer.getNodeId().getHost());
+            String host = allocatedContainer.getNodeId().getHost();
+            if (!hostToContainer.containsKey(host)) {
+              hostToContainer.put(host, allocatedContainer);
+              hostToProcNum.put(host, new Integer(1));
+              result.add(allocatedContainer);
+            } else {
+              Container container = hostToContainer.get(host);
+              int procNum = hostToProcNum.get(host).intValue();
+              procNum++;
+              hostToProcNum.put(host, new Integer(procNum));
+              // TODO check if this works
+              container.getResource().setMemory(procNum * containerMemory);
+              //allocatedContainer.setState(ContainerState.COMPLETE);
+            }
           }
-        }
-      }  // end if
-    }  // end while
+        }  // end if
+      } catch (IOException e) {
+        LOG.error("Failed asking RM for containers.", e);
+      }
+
+      }  // end while
+
     return result;
   }
 
