@@ -112,7 +112,7 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
             hostToProcNum.put(host, new Integer(procNum));
             // TODO check if this works
             container.getResource().setMemory(procNum * containerMemory);
-            allocatedContainer.setState(ContainerState.COMPLETE);
+            //allocatedContainer.setState(ContainerState.COMPLETE);
           }
         }
       }  // end if
