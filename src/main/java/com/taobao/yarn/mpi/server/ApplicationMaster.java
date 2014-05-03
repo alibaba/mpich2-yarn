@@ -39,11 +39,11 @@ import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
 import org.apache.hadoop.yarn.api.ContainerManager;
+import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.FinishApplicationMasterRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
-import org.apache.hadoop.yarn.api.records.AMResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -592,7 +592,7 @@ public class ApplicationMaster extends CompositeService {
             if (LOG.isDebugEnabled()) {
               LOG.debug("Sending empty request to RM, to let RM know we are alive");
             }
-            AMResponse amResp = Utilities.sendContainerAskToRM(
+            AllocateResponse amResp = Utilities.sendContainerAskToRM(
                 rmRequestID, appAttemptID, resourceManager,
                 new ArrayList<ResourceRequest>(),
                 new ArrayList<ContainerId>(),

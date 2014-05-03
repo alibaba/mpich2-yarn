@@ -9,7 +9,6 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
-import org.apache.hadoop.yarn.api.records.AMResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.Priority;
@@ -78,7 +77,7 @@ public final class Utilities {
    * @return Response from RM to AM with allocated containers
    * @throws YarnException
    */
-  public static AMResponse sendContainerAskToRM(
+  public static AllocateResponse sendContainerAskToRM(
       AtomicInteger rmRequestID,
       ApplicationAttemptId appAttemptID,
       ApplicationMasterProtocol resourceManager,
@@ -105,7 +104,7 @@ public final class Utilities {
     }
 
     AllocateResponse resp = resourceManager.allocate(req);
-    return resp.getAMResponse();
+    return resp;
   }
 
   /**

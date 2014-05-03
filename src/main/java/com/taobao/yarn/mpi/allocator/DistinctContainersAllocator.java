@@ -12,9 +12,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesResponse;
-import org.apache.hadoop.yarn.api.records.AMResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
@@ -99,7 +99,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
 
       // Send the request to RM
       LOG.info(String.format("Asking RM for %d containers", askCount));
-      AMResponse amResp = Utilities.sendContainerAskToRM(
+      AllocateResponse amResp = Utilities.sendContainerAskToRM(
           rmRequestID,
           appAttemptID,
           resourceManager,
