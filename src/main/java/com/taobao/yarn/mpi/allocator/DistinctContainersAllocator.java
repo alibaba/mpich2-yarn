@@ -163,18 +163,14 @@ public class DistinctContainersAllocator implements ContainersAllocator {
    * @return ResourceRequest sent to RM
    */
   private ResourceRequest setupAContainerAskForRM(String node) {
-    ResourceRequest request = Records.newRecord(ResourceRequest.class);
-    request.setHostName(node);
-    request.setNumContainers(1);  // important
-
     Priority priority = Records.newRecord(Priority.class);
     priority.setPriority(requestPriority);
-    request.setPriority(priority);
 
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(containerMemory);
-    request.setCapability(capability);
 
+    ResourceRequest request = ResourceRequest.newInstance(
+        priority, node, capability, 1);
     return request;
   }
 

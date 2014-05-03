@@ -48,26 +48,21 @@ public final class Utilities {
       int numContainers,
       int requestPriority,
       int containerMemory) {
-    ResourceRequest request = Records.newRecord(ResourceRequest.class);
-    // setup requirements for hosts, whether a particular rack/host is needed
-    // Refer to apis under org.apache.hadoop.net for more details on how to get figure out
-    // rack/host mapping. using * as any host will do for the distributed shell app
-    request.setHostName("*");
-    // set number of containers needed
-    request.setNumContainers(numContainers);
-
     // set the priority for the request
     Priority pri = Records.newRecord(Priority.class);
     // TODO - what is the range for priority? how to decide?
     pri.setPriority(requestPriority);
-    request.setPriority(pri);
 
     // Set up resource type requirements
     // For now, only memory is supported so we set memory requirements
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(containerMemory);
-    request.setCapability(capability);
 
+    // setup requirements for hosts, whether a particular rack/host is needed
+    // Refer to apis under org.apache.hadoop.net for more details on how to get figure out
+    // rack/host mapping. using * as any host will do for the distributed shell app
+    ResourceRequest request = ResourceRequest.newInstance(
+        pri, "*", capability, numContainers);
     return request;
   }
 
