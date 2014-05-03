@@ -44,16 +44,12 @@ public class MPIClientService extends AbstractService implements MPIClientProtoc
   @Override
   public void start() {
     Configuration conf = getConfig();
-    try {
       LOG.info("Initializing MPIClientProtocol's RPC services");
       server = RPC.getServer(MPIClientProtocol.class, this, 
           new InetSocketAddress("0.0.0.0", 0), conf, null, 1);
       server.start();
       bindAddress = NetUtils.getConnectAddress(server);
       LOG.info("Starting MPIClientProtocol's RPC service at" + bindAddress);
-    } catch (YarnException e) {
-      LOG.error("Error starting MPIClientProtocal's RPC Service", e);
-    }
 
     try {
       // TODO why this should be set to "mapreduce", any way to construct resources from

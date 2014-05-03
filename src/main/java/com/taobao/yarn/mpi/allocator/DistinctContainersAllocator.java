@@ -1,5 +1,6 @@
 package com.taobao.yarn.mpi.allocator;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -77,7 +78,8 @@ public class DistinctContainersAllocator implements ContainersAllocator {
   }
 
   @Override
-  public synchronized List<Container> allocateContainers(int numContainer) throws YarnException {
+  public synchronized List<Container> allocateContainers(int numContainer)
+      throws YarnException {
     List<Container> result = new ArrayList<Container>();
     List<ContainerId> released = new ArrayList<ContainerId>();
 
@@ -98,56 +100,60 @@ public class DistinctContainersAllocator implements ContainersAllocator {
       }
 
       // Send the request to RM
-      LOG.info(String.format("Asking RM for %d containers", askCount));
-      AllocateResponse amResp = Utilities.sendContainerAskToRM(
-          rmRequestID,
-          appAttemptID,
-          resourceManager,
-          resourceReq,
-          new ArrayList<ContainerId>(),
-          progress);
-      // Retrieve list of allocated containers from the response
-      List<Container> allocatedContainers = amResp.getAllocatedContainers();
-      LOG.info("Got response from RM for container ask, allocatedCount="
-          + allocatedContainers.size());
-
-      boolean firstAllocationSuccess = false;
-      for (Container allocatedContainer : allocatedContainers) {
-        firstAllocationSuccess = true;
-        String host = allocatedContainer.getNodeId().getHost();
-        if (!hosts.contains(host)) {
-          hosts.add(host);
-          LOG.info(String.format("Got a distinct container on %s", host));
-          result.add(allocatedContainer);
-          numAllocatedContainers.incrementAndGet();
-        } else {
-          released.add(allocatedContainer.getId());
-        }
-      }
-
-      // Second phase allocation, release the containers
-      if (firstAllocationSuccess) {
-        askCount = numContainer - numAllocatedContainers.get();
-        List<ResourceRequest> requests = new ArrayList<ResourceRequest>(askCount);
-        for (String node : nodes) {
-          if (askCount > 0) {
-            if (!hosts.contains(node)) {
-              ResourceRequest request = setupAContainerAskForRM(node);
-              requests.add(request);
-              askCount --;
-            }
-          } else {
-            break;
-          }
-        }
-        amResp = Utilities.sendContainerAskToRM(
+      try {
+        LOG.info(String.format("Asking RM for %d containers", askCount));
+        AllocateResponse amResp = Utilities.sendContainerAskToRM(
             rmRequestID,
             appAttemptID,
             resourceManager,
-            requests,
+            resourceReq,
             new ArrayList<ContainerId>(),
             progress);
-      }  // end if
+        // Retrieve list of allocated containers from the response
+        List<Container> allocatedContainers = amResp.getAllocatedContainers();
+        LOG.info("Got response from RM for container ask, allocatedCount="
+            + allocatedContainers.size());
+
+        boolean firstAllocationSuccess = false;
+        for (Container allocatedContainer : allocatedContainers) {
+          firstAllocationSuccess = true;
+          String host = allocatedContainer.getNodeId().getHost();
+          if (!hosts.contains(host)) {
+            hosts.add(host);
+            LOG.info(String.format("Got a distinct container on %s", host));
+            result.add(allocatedContainer);
+            numAllocatedContainers.incrementAndGet();
+          } else {
+            released.add(allocatedContainer.getId());
+          }
+        }
+
+        // Second phase allocation, release the containers
+        if (firstAllocationSuccess) {
+          askCount = numContainer - numAllocatedContainers.get();
+          List<ResourceRequest> requests = new ArrayList<ResourceRequest>(askCount);
+          for (String node : nodes) {
+            if (askCount > 0) {
+              if (!hosts.contains(node)) {
+                ResourceRequest request = setupAContainerAskForRM(node);
+                requests.add(request);
+                askCount --;
+              }
+            } else {
+              break;
+            }
+          }
+          amResp = Utilities.sendContainerAskToRM(
+              rmRequestID,
+              appAttemptID,
+              resourceManager,
+              requests,
+              new ArrayList<ContainerId>(),
+              progress);
+        }  // end if
+      } catch (IOException e) {
+        LOG.error("Error asking RM for containers", e);
+      }
     }  // end while
 
     // The "Distinct" of the class name means each host has only one process
@@ -181,11 +187,15 @@ public class DistinctContainersAllocator implements ContainersAllocator {
    */
   private List<String> getClusterNodes() throws YarnException {
     List<String> result = new ArrayList<String>();
-    GetClusterNodesRequest clusterNodesReq = Records.newRecord(GetClusterNodesRequest.class);
-    GetClusterNodesResponse clusterNodesResp = applicationsManager.getClusterNodes(clusterNodesReq);
-    List<NodeReport> nodeReports = clusterNodesResp.getNodeReports();
-    for (NodeReport nodeReport : nodeReports) {
-      result.add(nodeReport.getNodeId().getHost());
+    try {
+      GetClusterNodesRequest clusterNodesReq = Records.newRecord(GetClusterNodesRequest.class);
+      GetClusterNodesResponse clusterNodesResp = applicationsManager.getClusterNodes(clusterNodesReq);
+      List<NodeReport> nodeReports = clusterNodesResp.getNodeReports();
+      for (NodeReport nodeReport : nodeReports) {
+        result.add(nodeReport.getNodeId().getHost());
+      }
+    } catch (IOException e) {
+      LOG.error("Error getting all nodes in the cluster.", e);
     }
     return result;
   }

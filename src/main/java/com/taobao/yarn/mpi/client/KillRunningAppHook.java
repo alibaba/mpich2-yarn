@@ -34,7 +34,7 @@ public class KillRunningAppHook extends Thread {
     if (isRunning.get()) {
       try {
         Utilities.killApplication(applicationsManager, appId);
-      } catch (YarnException e) {
+      } catch (Exception e) {
         LOG.error("Error killing application: ", e);
       }
     }
