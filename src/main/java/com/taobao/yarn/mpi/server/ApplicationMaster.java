@@ -552,7 +552,7 @@ public class ApplicationMaster extends CompositeService {
           + ", containerNode=" + allocatedContainer.getNodeId().getHost()
           + ":" + allocatedContainer.getNodeId().getPort()
           + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress()
-          + ", containerState" + allocatedContainer.getState()
+          //+ ", containerState" + allocatedContainer.getState()
           + ", containerResourceMemory" + allocatedContainer.getResource().getMemory());
       LaunchContainer runnableLaunchContainer =
           new LaunchContainer(allocatedContainer, splits.get(Integer.valueOf(allocatedContainer.getId().getId())), resultToDestination.values());
@@ -616,7 +616,7 @@ public class ApplicationMaster extends CompositeService {
             }
             for (ContainerStatus containerStatus : completedContainers) {
               LOG.info("Got container status for containerID= " + containerStatus.getContainerId()
-                  + ", state=" + containerStatus.getState()
+                  //+ ", state=" + containerStatus.getState()
                   + ", exitStatus=" + containerStatus.getExitStatus()
                   + ", diagnostics=" + containerStatus.getDiagnostics());
 
