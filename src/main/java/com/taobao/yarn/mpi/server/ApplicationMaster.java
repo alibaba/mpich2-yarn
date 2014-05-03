@@ -498,7 +498,7 @@ public class ApplicationMaster extends CompositeService {
    * Main run function for the application master
    * @throws IOException
    */
-  public boolean run() throws IOException {
+  public boolean run() throws IOException, YarnException {
     LOG.info("Starting ApplicationMaster");
     // Connect to ResourceManager
     resourceManager = connectToRM();
@@ -715,9 +715,12 @@ public class ApplicationMaster extends CompositeService {
   }
 
   /**
-   * @throws YarnException
+   * @throws YarnException, IOException
    */
-  private void finishApp(final ApplicationMasterProtocol resourceManager, final ApplicationAttemptId appAttemptID, final FinalApplicationStatus status, final String diagnostics) throws YarnException {
+  private void finishApp(final ApplicationMasterProtocol resourceManager,
+      final ApplicationAttemptId appAttemptID,
+      final FinalApplicationStatus status,
+      final String diagnostics) throws YarnException, IOException {
     FinishApplicationMasterRequest finishReq =
         FinishApplicationMasterRequest.newInstance(
             status, diagnostics, null);
@@ -1012,7 +1015,7 @@ public class ApplicationMaster extends CompositeService {
 
       try {
         cm.startContainers(startReqs);
-      } catch (YarnException e) {
+      } catch (Exception e) {
         LOG.error("Start container failed for :"
             + ", containerId=" + container.getId(), e);
         // TODO do we need to release this container?
@@ -1039,19 +1042,19 @@ public class ApplicationMaster extends CompositeService {
   /**
    * Register the Application Master to the Resource Manager
    * @return the registration response from the RM
-   * @throws YarnException
+   * @throws YarnException, IOException
    */
-  private RegisterApplicationMasterResponse registerToRM() throws YarnException {
-    RegisterApplicationMasterRequest appMasterRequest = Records.newRecord(RegisterApplicationMasterRequest.class);
+  private RegisterApplicationMasterResponse registerToRM()
+    throws YarnException, IOException {
     // set the required info into the registration request:
-    // application attempt id,
     // host on which the app master is running
     // rpc port on which the app master accepts requests from the client
     // tracking url for the app master
-    appMasterRequest.setApplicationAttemptId(appAttemptID);
-    appMasterRequest.setHost(clientService.getBindAddress().getHostName());
-    appMasterRequest.setRpcPort(clientService.getBindAddress().getPort());
-    appMasterRequest.setTrackingUrl(appMasterTrackingUrl);
+    RegisterApplicationMasterRequest appMasterRequest = 
+        RegisterApplicationMasterRequest.newInstance(
+            clientService.getBindAddress().getHostName(),
+            clientService.getBindAddress().getPort(),
+            appMasterTrackingUrl);
     return resourceManager.registerApplicationMaster(appMasterRequest);
   }
 
