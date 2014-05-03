@@ -440,6 +440,7 @@ public final class Utilities {
     return applicationManager;
   }
 
+  /*
   public static void addLog4jSystemProperties(
       String logLevel, long logSize,Vector<CharSequence> vargs) {
     //We will be confused with the values of MRJobConfig.TASK_LOG_DIR and MRJobConfig.TASK_LOG_SIZE, see container-log4j.properties
@@ -449,5 +450,6 @@ public final class Utilities {
     vargs.add("-D" + MRJobConfig.TASK_LOG_SIZE + "=" + logSize);
     vargs.add("-Dhadoop.root.logger=" + logLevel + ",CLA");
   }
+  */
 
 }

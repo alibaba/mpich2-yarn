@@ -973,9 +973,11 @@ public class ApplicationMaster extends CompositeService {
       vargs.add("${JAVA_HOME}" + "/bin/java");
       vargs.add("-Xmx" + containerMemory + "m");
       // log are specified by the nodeManager's container-log4j.properties and nodemanager can specify the MPI_AM_LOG_LEVEL and MPI_AM_LOG_SIZE
+      /*
       String logLevel = conf.get(MPIConfiguration.MPI_CONTAINER_LOG_LEVEL, MPIConfiguration.DEFAULT_MPI_CONTAINER_LOG_LEVEL);
       long logSize = conf.getLong(MPIConfiguration.MPI_CONTAINER_LOG_SIZE, MPIConfiguration.DEFAULT_MPI_CONTAINER_LOG_SIZE);
       Utilities.addLog4jSystemProperties(logLevel, logSize, vargs);
+      */
       String javaOpts = conf.get(MPIConfiguration.MPI_CONTAINER_JAVA_OPTS_EXCEPT_MEMORY,"");
       if (!StringUtils.isBlank(javaOpts)) {
         vargs.add(javaOpts);
