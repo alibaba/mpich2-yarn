@@ -22,7 +22,7 @@ import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
 
 import com.taobao.yarn.mpi.util.Utilities;
@@ -60,14 +60,14 @@ public class DistinctContainersAllocator implements ContainersAllocator {
 
   /**
    * Constructor
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
   public DistinctContainersAllocator(
       AMRMProtocol resourceManager,
       ClientRMProtocol applicationsManager,
       int requestPriority,
       int containerMemory,
-      ApplicationAttemptId appAttemptId) throws YarnRemoteException {
+      ApplicationAttemptId appAttemptId) throws YarnException {
     this.resourceManager = resourceManager;
     this.applicationsManager = applicationsManager;
     this.requestPriority = requestPriority;
@@ -77,7 +77,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
   }
 
   @Override
-  public synchronized List<Container> allocateContainers(int numContainer) throws YarnRemoteException {
+  public synchronized List<Container> allocateContainers(int numContainer) throws YarnException {
     List<Container> result = new ArrayList<Container>();
     List<ContainerId> released = new ArrayList<ContainerId>();
 
@@ -181,9 +181,9 @@ public class DistinctContainersAllocator implements ContainersAllocator {
   /**
    * Get all the nodes in the cluster, this method generate RPC
    * @return host names
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
-  private List<String> getClusterNodes() throws YarnRemoteException {
+  private List<String> getClusterNodes() throws YarnException {
     List<String> result = new ArrayList<String>();
     GetClusterNodesRequest clusterNodesReq = Records.newRecord(GetClusterNodesRequest.class);
     GetClusterNodesResponse clusterNodesResp = applicationsManager.getClusterNodes(clusterNodesReq);

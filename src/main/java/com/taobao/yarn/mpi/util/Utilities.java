@@ -42,7 +42,7 @@ import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
@@ -109,7 +109,7 @@ public final class Utilities {
    * Ask RM to allocate given no. of containers to this Application Master
    * @param requestedContainers Containers to ask for from RM
    * @return Response from RM to AM with allocated containers
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
   public static AMResponse sendContainerAskToRM(
       AtomicInteger rmRequestID,
@@ -117,7 +117,7 @@ public final class Utilities {
       AMRMProtocol resourceManager,
       List<ResourceRequest> requestedContainers,
       List<ContainerId> releasedContainers,
-      float progress) throws YarnRemoteException {
+      float progress) throws YarnException {
     AllocateRequest req = Records.newRecord(AllocateRequest.class);
     req.setResponseId(rmRequestID.incrementAndGet());
     req.setApplicationAttemptId(appAttemptID);
@@ -371,10 +371,10 @@ public final class Utilities {
    * Kill a submitted application by sending a call to the ASM
    * @param applicationsManager Client<->RM
    * @param appId Application Id to be killed.
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
   public static void killApplication(ClientRMProtocol applicationsManager, ApplicationId appId)
-      throws YarnRemoteException {
+      throws YarnException {
     KillApplicationRequest request = Records.newRecord(KillApplicationRequest.class);
     // TODO clarify whether multiple jobs with the same app id can be submitted
     // and be running at the same time. If yes, can we kill a particular attempt only?
@@ -421,10 +421,10 @@ public final class Utilities {
    * @param appId
    * @param applicationsManager
    * @return
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
   public static ApplicationReport getApplicationReport(ApplicationId appId, ClientRMProtocol applicationsManager)
-      throws YarnRemoteException {
+      throws YarnException {
     RecordFactory recordFactory = RecordFactoryProvider.getRecordFactory(null);
     GetApplicationReportRequest request = recordFactory.newRecordInstance(GetApplicationReportRequest.class);
     request.setApplicationId(appId);

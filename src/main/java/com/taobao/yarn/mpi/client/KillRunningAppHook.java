@@ -6,7 +6,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 
 import com.taobao.yarn.mpi.util.Utilities;
 
@@ -34,7 +34,7 @@ public class KillRunningAppHook extends Thread {
     if (isRunning.get()) {
       try {
         Utilities.killApplication(applicationsManager, appId);
-      } catch (YarnRemoteException e) {
+      } catch (YarnException e) {
         LOG.error("Error killing application: ", e);
       }
     }

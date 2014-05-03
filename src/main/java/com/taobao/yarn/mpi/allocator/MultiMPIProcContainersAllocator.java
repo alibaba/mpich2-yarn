@@ -15,7 +15,7 @@ import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 
 
 import com.taobao.yarn.mpi.MPIConfiguration;
@@ -56,7 +56,7 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
 
   @Override
   public synchronized List<Container> allocateContainers(int numContainer)
-      throws YarnRemoteException {
+      throws YarnException {
     List<Container> result = new ArrayList<Container>();
     // Until we get our fully allocated quota, we keep on polling RM for containers
     // Keep looping until all the containers are launched and shell script executed on them

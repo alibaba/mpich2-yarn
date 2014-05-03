@@ -15,7 +15,7 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
 
 public final class Utilities {
@@ -76,7 +76,7 @@ public final class Utilities {
    * Ask RM to allocate given no. of containers to this Application Master
    * @param requestedContainers Containers to ask for from RM
    * @return Response from RM to AM with allocated containers
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
   public static AMResponse sendContainerAskToRM(
       AtomicInteger rmRequestID,
@@ -84,7 +84,7 @@ public final class Utilities {
       AMRMProtocol resourceManager,
       List<ResourceRequest> requestedContainers,
       List<ContainerId> releasedContainers,
-      float progress) throws YarnRemoteException {
+      float progress) throws YarnException {
     AllocateRequest req = Records.newRecord(AllocateRequest.class);
     req.setResponseId(rmRequestID.incrementAndGet());
     req.setApplicationAttemptId(appAttemptID);

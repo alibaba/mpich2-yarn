@@ -57,7 +57,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.service.CompositeService;
 import org.apache.hadoop.yarn.util.ConverterUtils;
@@ -710,9 +710,9 @@ public class ApplicationMaster extends CompositeService {
   }
 
   /**
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
-  private void finishApp(final AMRMProtocol resourceManager, final ApplicationAttemptId appAttemptID, final FinalApplicationStatus status, final String diagnostics) throws YarnRemoteException {
+  private void finishApp(final AMRMProtocol resourceManager, final ApplicationAttemptId appAttemptID, final FinalApplicationStatus status, final String diagnostics) throws YarnException {
     FinishApplicationMasterRequest finishReq = Records.newRecord(FinishApplicationMasterRequest.class);
     finishReq.setAppAttemptId(appAttemptID);
     finishReq.setFinishApplicationStatus(status);
@@ -1003,7 +1003,7 @@ public class ApplicationMaster extends CompositeService {
       startReq.setContainerLaunchContext(ctx);
       try {
         cm.startContainer(startReq);
-      } catch (YarnRemoteException e) {
+      } catch (YarnException e) {
         LOG.error("Start container failed for :"
             + ", containerId=" + container.getId(), e);
         // TODO do we need to release this container?
@@ -1030,9 +1030,9 @@ public class ApplicationMaster extends CompositeService {
   /**
    * Register the Application Master to the Resource Manager
    * @return the registration response from the RM
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
-  private RegisterApplicationMasterResponse registerToRM() throws YarnRemoteException {
+  private RegisterApplicationMasterResponse registerToRM() throws YarnException {
     RegisterApplicationMasterRequest appMasterRequest = Records.newRecord(RegisterApplicationMasterRequest.class);
     // set the required info into the registration request:
     // application attempt id,
@@ -1070,9 +1070,9 @@ public class ApplicationMaster extends CompositeService {
    * Keep looping until all the containers are launched and shell script executed on them
    * ( regardless of success/failure).
    * @return ContainerAllocation reference
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
-  private ContainersAllocator createContainersAllocator() throws YarnRemoteException {
+  private ContainersAllocator createContainersAllocator() throws YarnException {
     // FIXME the first "new" operation is useless, we will use configuration here
     ContainersAllocator allocator = new MultiMPIProcContainersAllocator(resourceManager,
         requestPriority, containerMemory, appAttemptID);

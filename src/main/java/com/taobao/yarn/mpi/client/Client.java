@@ -50,7 +50,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
@@ -586,7 +586,7 @@ public class Client {
       SubmitApplicationResponse submitResp = applicationsManager.submitApplication(appRequest);
       isRunning.set(submitResp != null);
       LOG.info("Submisstion result: " + isRunning);
-    } catch (YarnRemoteException e) {
+    } catch (YarnException e) {
       LOG.error("Submission failure.", e);
       return false;
     }
@@ -676,9 +676,9 @@ public class Client {
   /**
    * Get a new application from the ASM
    * @return New Application
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
-  private GetNewApplicationResponse getApplication() throws YarnRemoteException {
+  private GetNewApplicationResponse getApplication() throws YarnException {
     GetNewApplicationRequest request = Records.newRecord(GetNewApplicationRequest.class);
     GetNewApplicationResponse response = applicationsManager.getNewApplication(request);
     LOG.info("Got new application id=" + response.getApplicationId());
@@ -741,7 +741,7 @@ public class Client {
       if (null == appId)
         return false;
       Utilities.killApplication(applicationsManager, appId);
-    } catch (YarnRemoteException e) {
+    } catch (YarnException e) {
       LOG.error("Killing " + appIdToKill + " failed", e);
       return false;
     } catch (IOException e) {
