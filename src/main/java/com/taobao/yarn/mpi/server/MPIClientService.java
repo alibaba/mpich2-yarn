@@ -12,11 +12,11 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.ProtocolSignature;
-import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.ipc.HadoopYarnProtoRPC;
 import org.apache.hadoop.yarn.webapp.WebApp;
 import org.apache.hadoop.yarn.webapp.WebApps;
 
@@ -31,6 +31,7 @@ public class MPIClientService extends AbstractService implements MPIClientProtoc
   // MPI Web app for each ApplicationMaster
   private WebApp wa;
   private final AppContext appContext;
+  private final HadoopYarnProtoRPC RPC = new HadoopYarnProtoRPC();
   private Server server;
   //address binded to MPIClientProtocal's RPC Service
   private InetSocketAddress bindAddress;
@@ -45,13 +46,13 @@ public class MPIClientService extends AbstractService implements MPIClientProtoc
     Configuration conf = getConfig();
     try {
       LOG.info("Initializing MPIClientProtocol's RPC services");
-      server = RPC.getServer(MPIClientProtocol.class, this, "0.0.0.0", 0, conf);
+      server = RPC.getServer(MPIClientProtocol.class, this, 
+          new InetSocketAddress("0.0.0.0", 0), conf, null, 1);
       server.start();
       bindAddress = NetUtils.getConnectAddress(server);
       LOG.info("Starting MPIClientProtocol's RPC service at" + bindAddress);
-    } catch (IOException e1) {
-      LOG.error("Error starting MPIClientProtocal's RPC Service", e1);
-      throw new YarnException(e1);
+    } catch (YarnException e) {
+      LOG.error("Error starting MPIClientProtocal's RPC Service", e);
     }
 
     try {
