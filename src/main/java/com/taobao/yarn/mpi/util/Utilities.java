@@ -25,7 +25,7 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.mapreduce.MRJobConfig;
-import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
@@ -114,7 +114,7 @@ public final class Utilities {
   public static AMResponse sendContainerAskToRM(
       AtomicInteger rmRequestID,
       ApplicationAttemptId appAttemptID,
-      AMRMProtocol resourceManager,
+      ApplicationMasterProtocol resourceManager,
       List<ResourceRequest> requestedContainers,
       List<ContainerId> releasedContainers,
       float progress) throws YarnException {

@@ -35,7 +35,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
 import org.apache.hadoop.yarn.api.ContainerManager;
@@ -82,7 +82,7 @@ public class ApplicationMaster extends CompositeService {
   // YARN RPC to communicate with the Resource Manager or Node Manager
   private final YarnRPC rpc;
   // Handle to communicate with the Resource Manager
-  private AMRMProtocol resourceManager;
+  private ApplicationMasterProtocol resourceManager;
   // Handle to talk to the Resource Manager/Applications Manager
   private final ClientRMProtocol applicationsManager;
   // Application Attempt Id ( combination of attemptId and fail count )
@@ -712,7 +712,7 @@ public class ApplicationMaster extends CompositeService {
   /**
    * @throws YarnException
    */
-  private void finishApp(final AMRMProtocol resourceManager, final ApplicationAttemptId appAttemptID, final FinalApplicationStatus status, final String diagnostics) throws YarnException {
+  private void finishApp(final ApplicationMasterProtocol resourceManager, final ApplicationAttemptId appAttemptID, final FinalApplicationStatus status, final String diagnostics) throws YarnException {
     FinishApplicationMasterRequest finishReq = Records.newRecord(FinishApplicationMasterRequest.class);
     finishReq.setAppAttemptId(appAttemptID);
     finishReq.setFinishApplicationStatus(status);
@@ -1017,14 +1017,14 @@ public class ApplicationMaster extends CompositeService {
    * Connect to the Resource Manager
    * @return Handle to communicate with the RM
    */
-  private AMRMProtocol connectToRM() {
+  private ApplicationMasterProtocol connectToRM() {
     YarnConfiguration yarnConf = new YarnConfiguration(conf);
     InetSocketAddress rmAddress = yarnConf.getSocketAddr(
         YarnConfiguration.RM_SCHEDULER_ADDRESS,
         YarnConfiguration.DEFAULT_RM_SCHEDULER_ADDRESS,
         YarnConfiguration.DEFAULT_RM_SCHEDULER_PORT);
     LOG.info("Connecting to ResourceManager at " + rmAddress);
-    return ((AMRMProtocol) rpc.getProxy(AMRMProtocol.class, rmAddress, conf));
+    return ((ApplicationMasterProtocol) rpc.getProxy(ApplicationMasterProtocol.class, rmAddress, conf));
   }
 
   /**

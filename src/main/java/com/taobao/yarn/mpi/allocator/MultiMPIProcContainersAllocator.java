@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.records.AMResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -28,7 +28,7 @@ import com.taobao.yarn.mpi.util.Utilities;
  */
 public class MultiMPIProcContainersAllocator implements ContainersAllocator {
   private static final Log LOG = LogFactory.getLog(MultiMPIProcContainersAllocator.class);
-  private final AMRMProtocol resourceManager;
+  private final ApplicationMasterProtocol resourceManager;
   private final int requestPriority;
   private final int containerMemory;
   private final AtomicInteger rmRequestID = new AtomicInteger();
@@ -43,7 +43,7 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
   private final MPIConfiguration conf;
 
   public MultiMPIProcContainersAllocator(
-      AMRMProtocol resourceManager,
+      ApplicationMasterProtocol resourceManager,
       int reuqestPriority,
       int containerMemory,
       ApplicationAttemptId appAttemptId) {

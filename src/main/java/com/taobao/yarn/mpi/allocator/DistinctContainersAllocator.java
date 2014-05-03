@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesResponse;
@@ -33,7 +33,7 @@ import com.taobao.yarn.mpi.util.Utilities;
 public class DistinctContainersAllocator implements ContainersAllocator {
   private static final Log LOG = LogFactory.getLog(DistinctContainersAllocator.class);
   // Handle to communicate with the Resource Manager
-  private final AMRMProtocol resourceManager;
+  private final ApplicationMasterProtocol resourceManager;
   // Handle to talk to the Resource Manager/Applications Manager
   private final ClientRMProtocol applicationsManager;
   // Allocated container count so that we know how many containers has the RM
@@ -63,7 +63,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
    * @throws YarnException
    */
   public DistinctContainersAllocator(
-      AMRMProtocol resourceManager,
+      ApplicationMasterProtocol resourceManager,
       ClientRMProtocol applicationsManager,
       int requestPriority,
       int containerMemory,
