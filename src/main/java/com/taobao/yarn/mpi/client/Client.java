@@ -34,7 +34,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
-import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationRequest;
@@ -71,7 +71,7 @@ public class Client {
   // Configuration
   private final MPIConfiguration conf;
   // Handle to talk to the Resource Manager/Applications Manager
-  private ClientRMProtocol applicationsManager;
+  private ApplicationClientProtocol applicationsManager;
   //Handle to communicate to the ApplicationMaster
   private MPIClientProtocol mpiClient;
   // Application master specific info to register a new Application with RM/ASM

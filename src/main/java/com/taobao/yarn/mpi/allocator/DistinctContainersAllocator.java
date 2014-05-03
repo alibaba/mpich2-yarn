@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
-import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesResponse;
@@ -35,7 +35,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
   // Handle to communicate with the Resource Manager
   private final ApplicationMasterProtocol resourceManager;
   // Handle to talk to the Resource Manager/Applications Manager
-  private final ClientRMProtocol applicationsManager;
+  private final ApplicationClientProtocol applicationsManager;
   // Allocated container count so that we know how many containers has the RM
   // allocated to us
   private final AtomicInteger numAllocatedContainers = new AtomicInteger();
@@ -64,7 +64,7 @@ public class DistinctContainersAllocator implements ContainersAllocator {
    */
   public DistinctContainersAllocator(
       ApplicationMasterProtocol resourceManager,
-      ClientRMProtocol applicationsManager,
+      ApplicationClientProtocol applicationsManager,
       int requestPriority,
       int containerMemory,
       ApplicationAttemptId appAttemptId) throws YarnException {

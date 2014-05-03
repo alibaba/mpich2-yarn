@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 
@@ -20,9 +20,9 @@ public class KillRunningAppHook extends Thread {
 
   private final ApplicationId appId;
 
-  private final ClientRMProtocol applicationsManager;
+  private final ApplicationClientProtocol applicationsManager;
 
-  public KillRunningAppHook(AtomicBoolean isRunning, ClientRMProtocol applicationsManager, ApplicationId appId) {
+  public KillRunningAppHook(AtomicBoolean isRunning, ApplicationClientProtocol applicationsManager, ApplicationId appId) {
     super("KillRunningAppHook");
     this.isRunning = isRunning;
     this.appId = appId;

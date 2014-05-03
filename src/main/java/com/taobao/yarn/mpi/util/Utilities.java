@@ -27,7 +27,7 @@ import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.mapreduce.MRJobConfig;
 import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
-import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationReportRequest;
@@ -372,7 +372,7 @@ public final class Utilities {
    * @param appId Application Id to be killed.
    * @throws YarnException
    */
-  public static void killApplication(ClientRMProtocol applicationsManager, ApplicationId appId)
+  public static void killApplication(ApplicationClientProtocol applicationsManager, ApplicationId appId)
       throws YarnException {
     KillApplicationRequest request = Records.newRecord(KillApplicationRequest.class);
     // TODO clarify whether multiple jobs with the same app id can be submitted
@@ -388,15 +388,15 @@ public final class Utilities {
    * @return Handle to communicate with the ASM
    * @throws IOException
    */
-  public static ClientRMProtocol connectToASM(YarnConfiguration conf) throws IOException {
+  public static ApplicationClientProtocol connectToASM(YarnConfiguration conf) throws IOException {
     YarnRPC rpc = YarnRPC.create(conf);
     InetSocketAddress rmAddress = conf.getSocketAddr(
         YarnConfiguration.RM_ADDRESS,
         YarnConfiguration.DEFAULT_RM_ADDRESS,
         YarnConfiguration.DEFAULT_RM_PORT);
     LOG.info("Connecting to ResourceManager at " + rmAddress);
-    ClientRMProtocol applicationsManager = ((ClientRMProtocol) rpc.getProxy(
-        ClientRMProtocol.class, rmAddress, conf));
+    ApplicationClientProtocol applicationsManager = ((ApplicationClientProtocol) rpc.getProxy(
+        ApplicationClientProtocol.class, rmAddress, conf));
     return applicationsManager;
   }
 
@@ -422,7 +422,7 @@ public final class Utilities {
    * @return
    * @throws YarnException
    */
-  public static ApplicationReport getApplicationReport(ApplicationId appId, ClientRMProtocol applicationsManager)
+  public static ApplicationReport getApplicationReport(ApplicationId appId, ApplicationClientProtocol applicationsManager)
       throws YarnException {
     RecordFactory recordFactory = RecordFactoryProvider.getRecordFactory(null);
     GetApplicationReportRequest request = recordFactory.newRecordInstance(GetApplicationReportRequest.class);
