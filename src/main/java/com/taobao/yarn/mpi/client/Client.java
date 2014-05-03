@@ -613,7 +613,7 @@ public class Client {
       if (mpiClient == null && isRunning.get() == true) {
         LOG.info("Got application report from ASM for"
             + ", appId=" + appId.getId()
-            + ", clientToken=" + report.getClientToken()
+            + ", clientToken=" + report.getClientToAMToken()
             + ", appDiagnostics=" + report.getDiagnostics()
             + ", appMasterHost=" + report.getHost()
             + ", rpcPort:" + report.getRpcPort()
