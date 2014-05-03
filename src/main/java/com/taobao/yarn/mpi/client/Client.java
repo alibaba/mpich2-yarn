@@ -421,9 +421,6 @@ public class Client {
     LOG.info("Set Application Name: " + appName);
     appContext.setApplicationName(appName);
 
-    // Set up the container launch context for the application master
-    ContainerLaunchContext amContainer = Records.newRecord(ContainerLaunchContext.class);
-
     LOG.info("Copy App Master jar from local filesystem and add to local environment");
     // Copy the application master jar to the filesystem
     // Create a local resource to point to the destination jar path
@@ -447,9 +444,6 @@ public class Client {
     amJarRsrc.setTimestamp(appJarDestStatus.getModificationTime());
     amJarRsrc.setSize(appJarDestStatus.getLen());
     localResources.put("AppMaster.jar",  amJarRsrc);
-
-    // Set local resource info into app master container launch context
-    amContainer.setLocalResources(localResources);
 
     LOG.info("Copy MPI application from local filesystem to remote.");
     assert(!mpiApplication.isEmpty());
@@ -518,8 +512,6 @@ public class Client {
     classPathEnv.append(testRuntimeClassPath);
     env.put("CLASSPATH", classPathEnv.toString());
 
-    amContainer.setEnvironment(env);
-
     // Set the necessary command to execute the application master
     Vector<CharSequence> vargs = new Vector<CharSequence>(30);
     // Set java executable command
@@ -558,13 +550,18 @@ public class Client {
     LOG.info("Completed setting up app master command " + command.toString());
     List<String> commands = new ArrayList<String>();
     commands.add(command.toString());
-    amContainer.setCommands(commands);
 
     // Set up resource type requirements
     // For now, only memory is supported so we set memory requirements
+    /*
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(amMemory);
     amContainer.setResource(capability);
+    */
+
+    // Set up the container launch context for the application master
+    ContainerLaunchContext amContainer = ContainerLaunchContext.newInstance(
+        localResources, env, commands, null, null, null);
 
     appContext.setAMContainerSpec(amContainer);
 
