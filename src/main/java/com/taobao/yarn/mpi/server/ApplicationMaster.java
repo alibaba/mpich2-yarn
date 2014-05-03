@@ -133,6 +133,9 @@ public class ApplicationMaster extends CompositeService {
   // true if all the containers download the same file
   private boolean isAllSame = true;
 
+  private static final String AM_CONTAINER_ID_ENV = "AM_CONTAINER_ID";
+  private static final String NM_HOST_ENV = "NM_HOST";
+
   //MPI Input Data location
   private final ConcurrentHashMap<String, InputFile> fileToLocation = new ConcurrentHashMap<String, InputFile>();
 
@@ -254,7 +257,7 @@ public class ApplicationMaster extends CompositeService {
     Map<String, String> envs = System.getenv();
 
     appAttemptID = Records.newRecord(ApplicationAttemptId.class);
-    if (!envs.containsKey(ApplicationConstants.AM_CONTAINER_ID_ENV)) {
+    if (!envs.containsKey(AM_CONTAINER_ID_ENV)) {
       // Only for test purpose
       if (cliParser.hasOption("app_attempt_id")) {
         String appIdStr = cliParser.getOptionValue("app_attempt_id", "");
@@ -263,7 +266,8 @@ public class ApplicationMaster extends CompositeService {
         throw new IllegalArgumentException("Application Attempt Id not set in the environment");
       }
     } else {
-      ContainerId containerId = ConverterUtils.toContainerId(envs.get(ApplicationConstants.AM_CONTAINER_ID_ENV));
+      ContainerId containerId = ConverterUtils.toContainerId(
+          envs.get(AM_CONTAINER_ID_ENV));
       appAttemptID = containerId.getApplicationAttemptId();
     }
 
@@ -370,10 +374,9 @@ public class ApplicationMaster extends CompositeService {
       }
     }
 
-    if (envs.containsKey(ApplicationConstants.NM_HOST_ENV)) {
-      appMasterHostname = envs.get(ApplicationConstants.NM_HOST_ENV);
-      LOG.info("Environment " + ApplicationConstants.NM_HOST_ENV + " is "
-          + appMasterHostname);
+    if (envs.containsKey(NM_HOST_ENV)) {
+      appMasterHostname = envs.get(NM_HOST_ENV);
+      LOG.info("Environment " + NM_HOST_ENV + " is " + appMasterHostname);
     }
 
     mpiExecDir = Utilities.getMpiExecDir(conf, appAttemptID);
@@ -962,7 +965,7 @@ public class ApplicationMaster extends CompositeService {
       env.put(MPIConstants.CONTAINOUTPUT, Utilities.encodeMPIResult(results));
 
       env.put("CONTAINER_ID", String.valueOf(container.getId().getId()));
-      env.put("APPMASTER_HOST", System.getenv(ApplicationConstants.NM_HOST_ENV));
+      env.put("APPMASTER_HOST", System.getenv(NM_HOST_ENV));
       env.put("APPMASTER_PORT", String.valueOf(mpdListener.getServerPort()));
       ctx.setEnvironment(env);
 
