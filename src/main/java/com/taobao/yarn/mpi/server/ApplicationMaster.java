@@ -717,12 +717,9 @@ public class ApplicationMaster extends CompositeService {
    * @throws YarnException
    */
   private void finishApp(final ApplicationMasterProtocol resourceManager, final ApplicationAttemptId appAttemptID, final FinalApplicationStatus status, final String diagnostics) throws YarnException {
-    FinishApplicationMasterRequest finishReq = Records.newRecord(FinishApplicationMasterRequest.class);
-    finishReq.setAppAttemptId(appAttemptID);
-    finishReq.setFinishApplicationStatus(status);
-    if(!StringUtils.isBlank(diagnostics)) {
-      finishReq.setDiagnostics(diagnostics);
-    }
+    FinishApplicationMasterRequest finishReq =
+        FinishApplicationMasterRequest.newInstance(
+            status, diagnostics, null);
     resourceManager.finishApplicationMaster(finishReq);
   }
 
