@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.yarn.Clock;
+import org.apache.hadoop.yarn.util.Clock;
 import org.apache.hadoop.yarn.service.AbstractService;
 
 import com.taobao.yarn.mpi.MPIConfiguration;
