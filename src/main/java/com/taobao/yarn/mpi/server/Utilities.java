@@ -79,12 +79,9 @@ public final class Utilities {
       List<ResourceRequest> requestedContainers,
       List<ContainerId> releasedContainers,
       float progress) throws YarnException {
-    AllocateRequest req = Records.newRecord(AllocateRequest.class);
-    req.setResponseId(rmRequestID.incrementAndGet());
-    req.setApplicationAttemptId(appAttemptID);
-    req.addAllAsks(requestedContainers);
-    req.addAllReleases(releasedContainers);
-    req.setProgress(progress);
+    AllocateRequest req = AllocateRequest.newInstance(
+        rmRequestID.incrementAndGet(), progress,
+        requestedContainers, releasedContainers, null);
 
     LOG.info("Sending request to RM for containers"
         + ", requestedSet=" + requestedContainers.size()
