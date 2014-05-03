@@ -899,13 +899,11 @@ public class ApplicationMaster extends CompositeService {
 
       LOG.info("Setting up container launch container for containerid=" + container.getId());
 
-      ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
-      ctx.setContainerId(container.getId());
-      ctx.setResource(container.getResource());
-
+      /*
       String jobUserName = System.getenv(ApplicationConstants.Environment.USER.name());
       ctx.setUser(jobUserName);
       LOG.info("Setting user in ContainerLaunchContext to: " + jobUserName);
+      */
 
       // Set the local resources for each container
       Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
@@ -939,7 +937,6 @@ public class ApplicationMaster extends CompositeService {
       appJarRsrc.setTimestamp(hdfsAppJarTimeStamp);
       appJarRsrc.setSize(hdfsAppJarLen);
       localResources.put("AppMaster.jar", appJarRsrc);
-      ctx.setLocalResources(localResources);
 
       // Set the env variables to be setup in the env where the container will be run
       LOG.info("Set the environment for the application master");
@@ -965,7 +962,6 @@ public class ApplicationMaster extends CompositeService {
       env.put("CONTAINER_ID", String.valueOf(container.getId().getId()));
       env.put("APPMASTER_HOST", System.getenv(NM_HOST_ENV));
       env.put("APPMASTER_PORT", String.valueOf(mpdListener.getServerPort()));
-      ctx.setEnvironment(env);
 
       containerToStatus.put(container.getId().toString(), MPDStatus.UNDEFINED);
       // Set the necessary command to execute on the allocated container
@@ -1000,7 +996,10 @@ public class ApplicationMaster extends CompositeService {
       }
       commands.add(containerCmd.toString());
       LOG.info("Executing command: " + commands.toString());
-      ctx.setCommands(commands);
+
+      ContainerLaunchContext ctx = ContainerLaunchContext.newInstance(
+          localResources, env, commands, null, null, null);
+
 
       StartContainerRequest startReq = Records.newRecord(StartContainerRequest.class);
       startReq.setContainerLaunchContext(ctx);
