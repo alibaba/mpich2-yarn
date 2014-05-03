@@ -39,7 +39,7 @@ import org.apache.hadoop.service.CompositeService;
 import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
-import org.apache.hadoop.yarn.api.ContainerManager;
+import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.FinishApplicationMasterRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterRequest;
@@ -850,7 +850,7 @@ public class ApplicationMaster extends CompositeService {
   }
 
   /**
-   * Thread to connect to the {@link ContainerManager} and
+   * Thread to connect to the {@link ContainerManagementProtocol} and
    * launch the container that will execute the shell command.
    */
   private class LaunchContainer implements Callable<Boolean> {
@@ -858,8 +858,8 @@ public class ApplicationMaster extends CompositeService {
     Log LOG = LogFactory.getLog(LaunchContainer.class);
     // Allocated container
     Container container;
-    // Handle to communicate with ContainerManager
-    ContainerManager cm;
+    // Handle to communicate with ContainerManagementProtocol
+    ContainerManagementProtocol cm;
 
     //files needing to download
     private final List<FileSplit> fileSplits;
@@ -876,15 +876,15 @@ public class ApplicationMaster extends CompositeService {
     }
 
     /**
-     * Helper function to connect to ContainerManager
+     * Helper function to connect to ContainerManagementProtocol
      */
     private void connectToCM() {
-      LOG.debug("Connecting to ContainerManager for containerid=" + container.getId());
+      LOG.debug("Connecting to ContainerManagementProtocol for containerid=" + container.getId());
       String cmIpPortStr = container.getNodeId().getHost() + ":"
           + container.getNodeId().getPort();
       InetSocketAddress cmAddress = NetUtils.createSocketAddr(cmIpPortStr);
-      LOG.info("Connecting to ContainerManager at " + cmIpPortStr);
-      this.cm = ((ContainerManager) rpc.getProxy(ContainerManager.class, cmAddress, conf));
+      LOG.info("Connecting to ContainerManagementProtocol at " + cmIpPortStr);
+      this.cm = ((ContainerManagementProtocol) rpc.getProxy(ContainerManagementProtocol.class, cmAddress, conf));
     }
 
     /**
@@ -1001,8 +1001,14 @@ public class ApplicationMaster extends CompositeService {
 
       StartContainerRequest startReq = Records.newRecord(StartContainerRequest.class);
       startReq.setContainerLaunchContext(ctx);
+      List<StartContainerRequest> startReqList
+          = new ArrayList<StartContainerRequest>();
+      startReqList.add(startReq);
+      StartContainersRequest startReqs
+          = StartContainersRequest.newInstance(startReqList);
+
       try {
-        cm.startContainer(startReq);
+        cm.startContainers(startReqs);
       } catch (YarnException e) {
         LOG.error("Start container failed for :"
             + ", containerId=" + container.getId(), e);
