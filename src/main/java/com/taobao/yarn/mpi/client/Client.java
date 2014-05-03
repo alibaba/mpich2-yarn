@@ -383,20 +383,21 @@ public class Client {
     // the required resources from the RM for the app master
     // Memory ask has to be a multiple of min and less than max.
     // Dump out information about cluster capability as seen by the resource manager
-    int minMem = newApp.getMinimumResourceCapability().getMemory();
+    //int minMem = newApp.getMinimumResourceCapability().getMemory();
     int maxMem = newApp.getMaximumResourceCapability().getMemory();
-    LOG.info("Min mem capabililty of resources in this cluster " + minMem);
+    //LOG.info("Min mem capabililty of resources in this cluster " + minMem);
     LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
 
     // A resource ask has to be at least the minimum of the capability of the cluster,
     // the value has to be a multiple of the min value and cannot exceed the max.
     // If it is not an exact multiple of min, the RM will allocate to the nearest multiple of min
+    /*
     if (amMemory < minMem) {
       LOG.info("AM memory specified below min threshold of cluster. Using min value."
           + ", specified=" + amMemory
           + ", min=" + minMem);
       amMemory = minMem;
-    } else if (amMemory > maxMem) {
+    } else*/ if (amMemory > maxMem) {
       LOG.info("AM memory specified above max threshold of cluster. Using max value."
           + ", specified=" + amMemory
           + ", max=" + maxMem);
