@@ -1,6 +1,7 @@
 package com.taobao.yarn.mpi.server;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -10,10 +11,10 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.ProtocolSignature;
-import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.service.CompositeService;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.ipc.HadoopYarnProtoRPC;
 import org.apache.hadoop.yarn.util.SystemClock;
 
 import com.taobao.yarn.mpi.MPIConfiguration;
@@ -26,6 +27,7 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
 
   private static final Log LOG = LogFactory.getLog(MPDListenerImpl.class);
 
+  private HadoopYarnProtoRPC RPC = new HadoopYarnProtoRPC();
   private Server server;
 
   private final Map<Integer, MPDStatus> containerToStatus;
@@ -58,12 +60,8 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
 
   private void startRpcServer() {
     Configuration conf = getConfig();
-    try {
-      server = RPC.getServer(MPDProtocol.class, this, "0.0.0.0", 0, conf);
-    } catch (IOException e) {
-      LOG.error("Error starting MPD Listener", e);
-      throw new YarnException(e);
-    }
+    server = RPC.getServer(MPDProtocol.class, this,
+        new InetSocketAddress("0.0.0.0", 0), conf, null, 1);
     server.start();
   }
 
