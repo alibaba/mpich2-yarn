@@ -364,9 +364,9 @@ public class Client {
   /**
    * Main run function for the client
    * @return true if application completed successfully
-   * @throws IOException
+   * @throws IOException, YarnException
    */
-  public boolean run() throws IOException {
+  public boolean run() throws IOException, YarnException {
     LOG.info("Starting Client");
     // Connect to ResourceManager
     applicationsManager = Utilities.connectToASM(conf);
@@ -553,11 +553,9 @@ public class Client {
 
     // Set up resource type requirements
     // For now, only memory is supported so we set memory requirements
-    /*
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(amMemory);
-    amContainer.setResource(capability);
-    */
+    appContext.setResource(capability);
 
     // Set up the container launch context for the application master
     ContainerLaunchContext amContainer = ContainerLaunchContext.newInstance(
@@ -600,9 +598,9 @@ public class Client {
    * Kill application if time expires.
    * @param appId Application Id of application to be monitored
    * @return true if application completed successfully
-   * @throws IOException
+   * @throws IOException, YarnException
    */
-  private boolean monitorApplication() throws IOException {
+  private boolean monitorApplication() throws IOException, YarnException {
 
     Runtime.getRuntime().addShutdownHook(
         new KillRunningAppHook(isRunning, applicationsManager, appId));
@@ -676,9 +674,10 @@ public class Client {
   /**
    * Get a new application from the ASM
    * @return New Application
-   * @throws YarnException
+   * @throws IOException, YarnException
    */
-  private GetNewApplicationResponse getApplication() throws YarnException {
+  private GetNewApplicationResponse getApplication()
+      throws IOException, YarnException {
     GetNewApplicationRequest request = Records.newRecord(GetNewApplicationRequest.class);
     GetNewApplicationResponse response = applicationsManager.getNewApplication(request);
     LOG.info("Got new application id=" + response.getApplicationId());
@@ -756,9 +755,9 @@ public class Client {
     Matcher m = p.matcher(appIdStr);
     if (!m.matches())
       return null;
-    ApplicationId appId = Records.newRecord(ApplicationId.class);
-    appId.setClusterTimestamp(Long.parseLong(m.group(1)));
-    appId.setId(Integer.parseInt(m.group(2)));
+    ApplicationId appId = ApplicationId.newInstance(
+        Long.parseLong(m.group(1)),
+        Integer.parseInt(m.group(2)));
     return appId;
   }
 }
