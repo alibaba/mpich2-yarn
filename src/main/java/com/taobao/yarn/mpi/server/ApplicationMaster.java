@@ -71,6 +71,7 @@ import com.taobao.yarn.mpi.allocator.DistinctContainersAllocator;
 import com.taobao.yarn.mpi.allocator.MultiMPIProcContainersAllocator;
 import com.taobao.yarn.mpi.util.FileSplit;
 import com.taobao.yarn.mpi.util.InputFile;
+//import com.taobao.yarn.mpi.util.LOG;
 import com.taobao.yarn.mpi.util.MPDException;
 import com.taobao.yarn.mpi.util.MPIResult;
 import com.taobao.yarn.mpi.util.Utilities;
@@ -134,8 +135,9 @@ public class ApplicationMaster extends CompositeService {
   // true if all the containers download the same file
   private boolean isAllSame = true;
 
-  private static final String AM_CONTAINER_ID_ENV = "AM_CONTAINER_ID";
   private static final String NM_HOST_ENV = "NM_HOST";
+  private static final String CONTAINER_ID =
+      ApplicationConstants.Environment.CONTAINER_ID.toString();
 
   //MPI Input Data location
   private final ConcurrentHashMap<String, InputFile> fileToLocation = new ConcurrentHashMap<String, InputFile>();
@@ -174,8 +176,9 @@ public class ApplicationMaster extends CompositeService {
         System.exit(0);
       }
       result = appMaster.run();
-    } catch (Throwable t) {
-      LOG.fatal("Error running ApplicationMaster", t);
+    } catch (Exception e) {
+      LOG.fatal("Error running ApplicationMaster", e);
+      e.printStackTrace();
       System.exit(1);
     }finally{
       if (appMaster != null) {
@@ -258,17 +261,18 @@ public class ApplicationMaster extends CompositeService {
     Map<String, String> envs = System.getenv();
 
     appAttemptID = Records.newRecord(ApplicationAttemptId.class);
-    if (!envs.containsKey(AM_CONTAINER_ID_ENV)) {
+    if (!envs.containsKey(CONTAINER_ID)) {
       // Only for test purpose
       if (cliParser.hasOption("app_attempt_id")) {
         String appIdStr = cliParser.getOptionValue("app_attempt_id", "");
         appAttemptID = ConverterUtils.toApplicationAttemptId(appIdStr);
       } else {
+        LOG.error("Application Attempt Id not set in the environment");
         throw new IllegalArgumentException("Application Attempt Id not set in the environment");
       }
     } else {
-      ContainerId containerId = ConverterUtils.toContainerId(
-          envs.get(AM_CONTAINER_ID_ENV));
+      ContainerId containerId =
+          ConverterUtils.toContainerId(envs.get(CONTAINER_ID));
       appAttemptID = containerId.getApplicationAttemptId();
     }
 

@@ -440,16 +440,14 @@ public final class Utilities {
     return applicationManager;
   }
 
-  /*
   public static void addLog4jSystemProperties(
       String logLevel, long logSize,Vector<CharSequence> vargs) {
     //We will be confused with the values of MRJobConfig.TASK_LOG_DIR and MRJobConfig.TASK_LOG_SIZE, see container-log4j.properties
+    //vargs.add("-Dlog4j.configuration=/home/fredfsh/fun/ChinaMobile/src/hadoop-common/hadoop-dist/target/hadoop-2.4.0/etc/hadoop/container-log4j.properties");
     vargs.add("-Dlog4j.configuration=container-log4j.properties");
-    vargs.add("-D" + MRJobConfig.TASK_LOG_DIR + "=" +
-        ApplicationConstants.LOG_DIR_EXPANSION_VAR);
-    vargs.add("-D" + MRJobConfig.TASK_LOG_SIZE + "=" + logSize);
-    vargs.add("-Dhadoop.root.logger=" + logLevel + ",CLA");
+    //vargs.add("-D" + MRJobConfig.TASK_LOG_DIR + "=" +
+    //    ApplicationConstants.LOG_DIR_EXPANSION_VAR);
+    //vargs.add("-D" + MRJobConfig.TASK_LOG_SIZE + "=" + logSize);
   }
-  */
 
 }
