@@ -11,10 +11,10 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.ProtocolSignature;
+import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.service.CompositeService;
 import org.apache.hadoop.yarn.exceptions.YarnException;
-import org.apache.hadoop.yarn.ipc.HadoopYarnProtoRPC;
 import org.apache.hadoop.yarn.util.SystemClock;
 
 import com.taobao.yarn.mpi.MPIConfiguration;
@@ -27,7 +27,6 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
 
   private static final Log LOG = LogFactory.getLog(MPDListenerImpl.class);
 
-  private HadoopYarnProtoRPC RPC = new HadoopYarnProtoRPC();
   private Server server;
 
   private final Map<Integer, MPDStatus> containerToStatus;
@@ -60,8 +59,18 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
 
   private void startRpcServer() {
     Configuration conf = getConfig();
-    server = RPC.getServer(MPDProtocol.class, this,
-        new InetSocketAddress("0.0.0.0", 0), conf, null, 1);
+    RPC.Builder builder = new RPC.Builder(conf);
+    builder.setProtocol(MPDProtocol.class);
+    builder.setInstance(this);
+    builder.setBindAddress("0.0.0.0");
+    builder.setPort(0);
+    try {
+      server = builder.build();
+    } catch (Exception e) {
+      LOG.error("Error building RPC server.");
+      e.printStackTrace();
+      return;
+    }
     server.start();
   }
 
