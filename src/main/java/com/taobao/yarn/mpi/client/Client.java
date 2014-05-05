@@ -482,6 +482,9 @@ public class Client {
       }
       env.put(MPIConstants.MPIINPUTS, names.substring(0, names.length()-1).toString());
     }
+    env.put(MPIConstants.ALLOCATOR, conf.get(
+          MPIConfiguration.MPI_CONTAINER_ALLOCATOR,
+          MPIConfiguration.DEFAULT_MPI_CONTAINER_ALLOCATOR));
 
     Set<String> keyResults = resultToLocation.keySet();
     StringBuilder resultNames = new StringBuilder(50);

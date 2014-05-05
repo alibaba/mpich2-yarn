@@ -503,7 +503,7 @@ public class ApplicationMaster extends CompositeService {
    * Main run function for the application master
    * @throws IOException
    */
-  public boolean run() throws IOException, YarnException {
+  public boolean run() throws IOException {
     LOG.info("Starting ApplicationMaster");
     // Connect to ResourceManager
     resourceManager = connectToRM();
@@ -513,27 +513,22 @@ public class ApplicationMaster extends CompositeService {
     initAndStartRPCServices();
 
     // Register self with ResourceManager
-    RegisterApplicationMasterResponse response = registerToRM();
-    // Dump out information about cluster capability as seen by the resource manager
-    //int minMem = response.getMinimumResourceCapability().getMemory();
-    int maxMem = response.getMaximumResourceCapability().getMemory();
-    //LOG.info("Min mem capabililty of resources in this cluster " + minMem);
-    LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
-
-    // A resource ask has to be atleast the minimum of the capability of the cluster, the value has to be
-    // a multiple of the min value and cannot exceed the max.
-    // If it is not an exact multiple of min, the RM will allocate to the nearest multiple of min
-    /*
-    if (containerMemory < minMem) {
-      LOG.info("Container memory specified below min threshold of cluster. Using min value."
-          + ", specified=" + containerMemory
-          + ", min=" + minMem);
-      containerMemory = minMem;  // container memory should be multiple of minMem
-    } else*/ if (containerMemory > maxMem) {
-      LOG.info("Container memory specified above max threshold of cluster. Using max value."
-          + ", specified=" + containerMemory
-          + ", max=" + maxMem);
-      containerMemory = maxMem;
+    try {
+      RegisterApplicationMasterResponse response = registerToRM();
+      // Dump out information about cluster capability as seen by the
+      // resource manager
+      int maxMem = response.getMaximumResourceCapability().getMemory();
+      //LOG.info("Min mem capabililty of resources in this cluster " + minMem);
+      LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
+      if (containerMemory > maxMem) {
+        LOG.info("Container memory specified above max threshold of cluster. Using max value."
+            + ", specified=" + containerMemory
+            + ", max=" + maxMem);
+        containerMemory = maxMem;
+      }
+    } catch (Exception e) {
+      LOG.error("Error registering to ResourceManger.");
+      e.printStackTrace();
     }
 
     // Setup heartbeat emitter
@@ -543,9 +538,16 @@ public class ApplicationMaster extends CompositeService {
     // defined by DEFAULT_RM_AM_EXPIRY_INTERVAL_MS. The allocate calls to the RM
     // count as heartbeats so, for now, this additional heartbeat emitter is not required.
     List<FutureTask<Boolean>> launchResults = new ArrayList<FutureTask<Boolean>>();
-    ContainersAllocator allocator = createContainersAllocator();
-    allContainers = allocator.allocateContainers(numTotalContainers);
+    ContainersAllocator allocator = null;
+    try {
+      allocator = createContainersAllocator();
+      allContainers = allocator.allocateContainers(numTotalContainers);
+    } catch (Exception e) {
+      LOG.error("Error allocating containers.");
+      e.printStackTrace();
+    }
     numTotalContainers = allContainers.size();
+    LOG.info(numTotalContainers + " containers allocated.");
     // TODO Available where we use MultiMPIProcContainersAllocator strategy
     hostToProcNum = allocator.getHostToProcNum();
     AtomicInteger rmRequestID = new AtomicInteger(allocator.getCurrentRequestId());
@@ -560,15 +562,25 @@ public class ApplicationMaster extends CompositeService {
           + ":" + allocatedContainer.getNodeId().getPort()
           + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress()
           //+ ", containerState" + allocatedContainer.getState()
-          + ", containerResourceMemory" + allocatedContainer.getResource().getMemory());
-      LaunchContainer runnableLaunchContainer =
-          new LaunchContainer(allocatedContainer, splits.get(Integer.valueOf(allocatedContainer.getId().getId())), resultToDestination.values());
-      // launch and start the container on a separate thread to keep the main thread
-      // unblocked as all containers may not be allocated/launched at one go.
-      FutureTask<Boolean> launchTask = new FutureTask<Boolean>(runnableLaunchContainer);
+          + ", containerResourceMemory"
+          + allocatedContainer.getResource().getMemory());
+      LaunchContainer runnableLaunchContainer = new LaunchContainer(
+          allocatedContainer,
+          splits.get(Integer.valueOf(allocatedContainer.getId().getId())),
+          resultToDestination.values());
+      LOG.info("Created LaunchContainer.");
+      // launch and start the container on a separate thread to keep the
+      // main thread unblocked as all containers may not
+      // be allocated/launched at one go.
+      FutureTask<Boolean> launchTask =
+          new FutureTask<Boolean>(runnableLaunchContainer);
+      LOG.info("Created LaunchTask.");
       Thread launchThread = new Thread(launchTask);
+      LOG.info("Created Thread.");
       launchThread.start();
+      LOG.info("Thread started.");
       launchResults.add(launchTask);
+      LOG.info("Added launch result.");
       mpdListener.addContainer(allocatedContainer.getId().getId());
     }
 
@@ -582,7 +594,9 @@ public class ApplicationMaster extends CompositeService {
       LOG.error("launch error:", e);
       this.appendMsg(org.apache.hadoop.util.StringUtils.stringifyException(e));
     }
+
     boolean isSuccess = true;
+    String diagnostics = null;
     //all tasks are launched successfully
     if (allLaunchSuccess) {
       this.appendMsg("all containers are launched successfully");
@@ -673,30 +687,35 @@ public class ApplicationMaster extends CompositeService {
 
         if (numFailedContainers.get() == 0) {
           isSuccess = true;
-          finishApp(resourceManager, appAttemptID, FinalApplicationStatus.SUCCEEDED, null);
         } else {
           isSuccess = false;
-          String diagnostics = "Diagnostics."
+          diagnostics = "Diagnostics."
               + ", total=" + numTotalContainers
               + ", completed=" + numCompletedContainers.get()
               + ", failed=" + numFailedContainers.get();
-          finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, diagnostics);
         }
-      } catch (MPDException e) {
-        isSuccess=false;
-        LOG.error("error occurs while starting MPD", e);
-        this.appendMsg("error occurs while starting MPD:" + org.apache.hadoop.util.StringUtils.stringifyException(e));
-        finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, e.getMessage());
       } catch (Exception e) {
         isSuccess=false;
         LOG.error("error occurs while starting MPD", e);
+        e.printStackTrace();
         this.appendMsg("error occurs while starting MPD:" + org.apache.hadoop.util.StringUtils.stringifyException(e));
-        finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, e.getMessage());
+        diagnostics = e.getMessage();
       }
     } else {
       //the applicationMaster finish with failure and realease the containers
       isSuccess=false;
-      finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, "error occurs while launching containers");
+      diagnostics = "Error occurs while launching containers.";
+    }
+
+
+    try {
+      finishApp(resourceManager, appAttemptID,
+          isSuccess ? FinalApplicationStatus.SUCCEEDED
+                    : FinalApplicationStatus.FAILED,
+          diagnostics);
+    } catch (Exception e) {
+      LOG.error("Error finishing app.");
+      e.printStackTrace();
     }
     return isSuccess;
   }
@@ -1091,14 +1110,12 @@ public class ApplicationMaster extends CompositeService {
    * Keep looping until all the containers are launched and shell script executed on them
    * ( regardless of success/failure).
    * @return ContainerAllocation reference
-   * @throws YarnException
    */
   private ContainersAllocator createContainersAllocator() throws YarnException {
-    // FIXME the first "new" operation is useless, we will use configuration here
-    ContainersAllocator allocator = new MultiMPIProcContainersAllocator(resourceManager,
-        requestPriority, containerMemory, appAttemptID);
-    allocator = new DistinctContainersAllocator(resourceManager, applicationsManager,
-        requestPriority, containerMemory, appAttemptID);
+    ContainersAllocator allocator = ContainersAllocator.newInstanceByName(
+        System.getenv(MPIConstants.ALLOCATOR),
+        resourceManager, requestPriority, containerMemory, appAttemptID);
+
     return allocator;
   }
 

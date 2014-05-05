@@ -31,6 +31,9 @@ public class MPIConfiguration extends YarnConfiguration {
 
   public static final String MPI_ALLOCATE_INTERVAL = "mpi.allocate.interval";
 
+  public static final String MPI_CONTAINER_ALLOCATOR = "yarn.mpi.container.allocator";
+  public static final String DEFAULT_MPI_CONTAINER_ALLOCATOR = "DistinctContainersAllocator";
+
   public static final String MPI_LOG_PULL_INTERVAL = "mpi.log.pull.interval";
 
   public static final String MPI_TASK_TIMEOUT = "yarn.mpi.task.timeout";

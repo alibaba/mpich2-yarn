@@ -31,7 +31,7 @@ import com.taobao.yarn.mpi.util.Utilities;
 /**
  * Allocate containers on distinct nodes
  */
-public class DistinctContainersAllocator implements ContainersAllocator {
+public class DistinctContainersAllocator extends ContainersAllocator {
   private static final Log LOG = LogFactory.getLog(DistinctContainersAllocator.class);
   // Handle to communicate with the Resource Manager
   private final ApplicationMasterProtocol resourceManager;

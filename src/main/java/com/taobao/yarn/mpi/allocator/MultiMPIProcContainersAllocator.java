@@ -27,7 +27,7 @@ import com.taobao.yarn.mpi.util.Utilities;
 /**
  * The container allocates
  */
-public class MultiMPIProcContainersAllocator implements ContainersAllocator {
+public class MultiMPIProcContainersAllocator extends ContainersAllocator {
   private static final Log LOG = LogFactory.getLog(MultiMPIProcContainersAllocator.class);
   private final ApplicationMasterProtocol resourceManager;
   private final int requestPriority;
@@ -45,8 +45,8 @@ public class MultiMPIProcContainersAllocator implements ContainersAllocator {
 
   public MultiMPIProcContainersAllocator(
       ApplicationMasterProtocol resourceManager,
-      int reuqestPriority,
-      int containerMemory,
+      Integer reuqestPriority,
+      Integer containerMemory,
       ApplicationAttemptId appAttemptId) {
     this.resourceManager = resourceManager;
     this.requestPriority = reuqestPriority;
