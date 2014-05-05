@@ -58,6 +58,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
@@ -510,6 +511,7 @@ public class ApplicationMaster extends CompositeService {
     // TODO Setup local RPC Server to accept status requests directly from clients
     // TODO use the rpc port info to register with the RM for the client to send requests to this app master
     initAndStartRPCServices();
+
     // Register self with ResourceManager
     RegisterApplicationMasterResponse response = registerToRM();
     // Dump out information about cluster capability as seen by the resource manager
@@ -1049,17 +1051,20 @@ public class ApplicationMaster extends CompositeService {
    * @throws YarnException, IOException
    */
   private RegisterApplicationMasterResponse registerToRM()
-    throws YarnException, IOException {
+      throws YarnException, IOException {
+
     // set the required info into the registration request:
     // host on which the app master is running
     // rpc port on which the app master accepts requests from the client
     // tracking url for the app master
-    RegisterApplicationMasterRequest appMasterRequest = 
-        RegisterApplicationMasterRequest.newInstance(
-            clientService.getBindAddress().getHostName(),
-            clientService.getBindAddress().getPort(),
-            appMasterTrackingUrl);
-    return resourceManager.registerApplicationMaster(appMasterRequest);
+    AMRMClient client = AMRMClient.createAMRMClient();
+    client.init(conf);
+    client.start();
+
+    return client.registerApplicationMaster(
+        clientService.getBindAddress().getHostName(),
+        clientService.getBindAddress().getPort(),
+        appMasterTrackingUrl);
   }
 
   /**
