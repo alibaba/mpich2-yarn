@@ -9,13 +9,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.client.api.AMRMClient;
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 
 
@@ -29,7 +30,7 @@ import com.taobao.yarn.mpi.util.Utilities;
  */
 public class MultiMPIProcContainersAllocator extends ContainersAllocator {
   private static final Log LOG = LogFactory.getLog(MultiMPIProcContainersAllocator.class);
-  private final ApplicationMasterProtocol resourceManager;
+  private AMRMClient rmClient = null;
   private final int requestPriority;
   private final int containerMemory;
   private final AtomicInteger rmRequestID = new AtomicInteger();
@@ -43,12 +44,10 @@ public class MultiMPIProcContainersAllocator extends ContainersAllocator {
 
   private final MPIConfiguration conf;
 
-  public MultiMPIProcContainersAllocator(
-      ApplicationMasterProtocol resourceManager,
-      Integer reuqestPriority,
-      Integer containerMemory,
+  public MultiMPIProcContainersAllocator(AMRMClient rmClient,
+      Integer reuqestPriority, Integer containerMemory,
       ApplicationAttemptId appAttemptId) {
-    this.resourceManager = resourceManager;
+    this.rmClient = rmClient;
     this.requestPriority = reuqestPriority;
     this.containerMemory = containerMemory;
     this.appAttemptID = appAttemptId;
@@ -71,28 +70,20 @@ public class MultiMPIProcContainersAllocator extends ContainersAllocator {
       int askCount = numContainer - numProcessCanRun.get();
       numRequestedContainers.addAndGet(askCount);
 
-      // Setup request for RM
-      List<ResourceRequest> resourceReq = new ArrayList<ResourceRequest>();
-      if (askCount > 0) {
-        ResourceRequest containerAsk = Utilities.setupContainerAskForRM(
-            askCount, requestPriority, containerMemory);
-        resourceReq.add(containerAsk);
+      // Setup request for RM and send it
+      LOG.info(String.format("Asking RM for %d containers", askCount));
+      for (int i = 1; i <= askCount; ++i) {
+        ContainerRequest containerAsk = Utilities.setupContainerAskForRM(
+            requestPriority, containerMemory);
+        rmClient.addContainerRequest(containerAsk);
       }
 
-      // Send request to RM
       try {
-        LOG.info(String.format("Asking RM for %d containers", askCount));
-        AllocateResponse amResp = Utilities.sendContainerAskToRM(
-            rmRequestID,
-            appAttemptID,
-            resourceManager,
-            resourceReq,
-            new ArrayList<ContainerId>(),
-            progress);
         // Retrieve list of allocated containers from the response
+        AllocateResponse amResp = rmClient.allocate(progress);
         List<Container> allocatedContainers = amResp.getAllocatedContainers();
-        LOG.info(String.format("Got response from RM for container ask, allocatedCount=%d",
-            allocatedContainers.size()));
+        LOG.info(String.format("Got response from RM for container ask, " +
+            "allocatedCount=%d", allocatedContainers.size()));
         numAllocatedContainers.addAndGet(allocatedContainers.size());
         numProcessCanRun.addAndGet(allocatedContainers.size());
 

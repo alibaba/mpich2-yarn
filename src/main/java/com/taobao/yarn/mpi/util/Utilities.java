@@ -41,6 +41,7 @@ import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
@@ -74,10 +75,31 @@ public final class Utilities {
 
   /**
    * Setup the request that will be sent to the RM for the container ask.
+   */
+  public static ContainerRequest setupContainerAskForRM(
+      int requestPriority, int containerMemory) {
+
+    // set the priority for the request
+    Priority pri = Records.newRecord(Priority.class);
+    // TODO - what is the range for priority? how to decide?
+    pri.setPriority(requestPriority);
+
+    // Set up resource type requirements
+    // For now, only memory is supported so we set memory requirements
+    Resource capability = Records.newRecord(Resource.class);
+    capability.setMemory(containerMemory);
+
+    ContainerRequest request = new ContainerRequest(
+        capability, null, null, pri);
+    return request;
+  }
+
+  /**
+   * Setup the request that will be sent to the RM for the container ask.
    * @param numContainers Containers to ask for from RM
    * @return the setup ResourceRequest to be sent to RM
    */
-  public static ResourceRequest setupContainerAskForRM(
+  public static ResourceRequest setupResourceAskForRM(
       int numContainers,
       int requestPriority,
       int containerMemory) {
@@ -106,7 +128,7 @@ public final class Utilities {
    * @return Response from RM to AM with allocated containers
    * @throws YarnException, IOException
    */
-  public static AllocateResponse sendContainerAskToRM(
+  public static AllocateResponse sendResourceAskToRM(
       AtomicInteger rmRequestID,
       ApplicationAttemptId appAttemptID,
       ApplicationMasterProtocol resourceManager,

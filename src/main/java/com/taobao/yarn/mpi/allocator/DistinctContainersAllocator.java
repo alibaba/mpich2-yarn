@@ -94,7 +94,7 @@ public class DistinctContainersAllocator extends ContainersAllocator {
 
       List<ResourceRequest> resourceReq = new ArrayList<ResourceRequest>();
       if (askCount > 0) {
-        ResourceRequest containerAsk = Utilities.setupContainerAskForRM(
+        ResourceRequest containerAsk = Utilities.setupResourceAskForRM(
             askCount, requestPriority, containerMemory);
         resourceReq.add(containerAsk);
       }
@@ -102,7 +102,7 @@ public class DistinctContainersAllocator extends ContainersAllocator {
       // Send the request to RM
       try {
         LOG.info(String.format("Asking RM for %d containers", askCount));
-        AllocateResponse amResp = Utilities.sendContainerAskToRM(
+        AllocateResponse amResp = Utilities.sendResourceAskToRM(
             rmRequestID,
             appAttemptID,
             resourceManager,
@@ -143,7 +143,7 @@ public class DistinctContainersAllocator extends ContainersAllocator {
               break;
             }
           }
-          amResp = Utilities.sendContainerAskToRM(
+          amResp = Utilities.sendResourceAskToRM(
               rmRequestID,
               appAttemptID,
               resourceManager,
