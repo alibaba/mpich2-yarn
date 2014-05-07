@@ -18,6 +18,7 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.SystemClock;
 
 import com.taobao.yarn.mpi.MPIConfiguration;
+//import com.taobao.yarn.mpi.util.LOG;
 import com.taobao.yarn.mpi.util.MPDException;
 
 /**
@@ -29,13 +30,13 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
 
   private Server server;
 
-  private final Map<Integer, MPDStatus> containerToStatus;
+  private final Map<ContainerId, MPDStatus> containerToStatus;
 
   protected TaskHeartbeatHandler taskHeartbeatHandler;
 
   public MPDListenerImpl() {
     super("MPDListener");
-    containerToStatus = new ConcurrentHashMap<Integer, MPDStatus>();
+    containerToStatus = new ConcurrentHashMap<ContainerId, MPDStatus>();
   }
 
   @Override
@@ -75,12 +76,18 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
   }
 
   @Override
-  public void reportStatus(int containerId, MPDStatus containerStatus) {
-    LOG.info(containerId + " report status " + containerStatus);
-    containerToStatus.put(containerId, containerStatus);
-    // TODO We need a state machine here to handle port in use and crash
-    if (containerStatus.equals(MPDStatus.MPD_CRASH)) {
-      LOG.error("Container " + containerId + " is crashed");
+  public void reportStatus(ContainerId containerId, MPDStatus containerStatus) {
+    LOG.info("Try to report status.");
+    try {
+      LOG.info(containerId.toString() + " report status " + containerStatus);
+      containerToStatus.put(containerId, containerStatus);
+      // TODO We need a state machine here to handle port in use and crash
+      if (containerStatus.equals(MPDStatus.MPD_CRASH)) {
+        LOG.error("Container " + containerId.toString() + " is crashed");
+      }
+    } catch (Exception e) {
+      LOG.error("Error reporting status.");
+      e.printStackTrace();
     }
   }
 
@@ -98,26 +105,31 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
   }
 
   @Override
-  public void addContainer(int containerId) {
+  public void addContainer(ContainerId containerId) {
     containerToStatus.put(containerId, MPDStatus.UNDEFINED);
     taskHeartbeatHandler.register(containerId);
   }
 
   @Override
   public boolean isAllMPDStarted() throws MPDException {
-    Iterator<Entry<Integer, MPDStatus>> i = containerToStatus.entrySet().iterator();
+    Iterator<Entry<ContainerId, MPDStatus>> i =
+        containerToStatus.entrySet().iterator();
     if (containerToStatus.isEmpty()) {
       return false;
     }
     while (i.hasNext()) {
-      Entry<Integer, MPDStatus> e = i.next();
+      Entry<ContainerId, MPDStatus> e = i.next();
       if (e.getValue().equals(MPDStatus.ERROR_FINISHED)){
-        throw new MPDException(String.format("Container %d error", e.getKey()));
+        throw new MPDException(String.format(
+              "Container %s error", e.getKey().toString()));
       } else if (e.getValue().equals(MPDStatus.DISCONNECTED)) {
-        throw new MPDException(String.format("Container %d is disconnected", e.getKey()));
+        throw new MPDException(String.format(
+              "Container %s is disconnected", e.getKey().toString()));
       } else if (e.getValue().equals(MPDStatus.MPD_CRASH)) {
-        throw new MPDException(String.format("Container %d is crashed", e.getKey()));
-      } else if (e.getValue().equals(MPDStatus.INITIALIZED) || e.getValue().equals(MPDStatus.UNDEFINED)) {
+        throw new MPDException(String.format(
+              "Container %s is crashed", e.getKey().toString()));
+      } else if (e.getValue().equals(MPDStatus.INITIALIZED)
+              || e.getValue().equals(MPDStatus.UNDEFINED)) {
         return false;
       }
     }
@@ -130,22 +142,26 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
   }
 
   @Override
-  public void ping(int containerId) {
+  public void ping(ContainerId containerId) {
     taskHeartbeatHandler.pinged(containerId);
   }
 
   @Override
   public boolean isAllHealthy() throws MPDException {
     Boolean healthy = true;
-    Iterator<Entry<Integer, MPDStatus>> i = containerToStatus.entrySet().iterator();
+    Iterator<Entry<ContainerId, MPDStatus>> i =
+        containerToStatus.entrySet().iterator();
     while (i.hasNext()) {
-      Entry<Integer, MPDStatus> e = i.next();
+      Entry<ContainerId, MPDStatus> e = i.next();
       if (e.getValue().equals(MPDStatus.ERROR_FINISHED)){
-        throw new MPDException(String.format("Container %d error", e.getKey()));
+        throw new MPDException(String.format(
+              "Container %s error", e.getKey().toString()));
       }else if (e.getValue().equals(MPDStatus.DISCONNECTED)) {
-        throw new MPDException(String.format("Container %d is disconnected", e.getKey()));
+        throw new MPDException(String.format(
+              "Container %s is disconnected", e.getKey().toString()));
       }else if (e.getValue().equals(MPDStatus.MPD_CRASH)) {
-        throw new MPDException(String.format("Container %d is crashed", e.getKey()));
+        throw new MPDException(String.format(
+              "Container %s is crashed", e.getKey().toString()));
       }
     }
     return healthy;

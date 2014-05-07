@@ -47,7 +47,6 @@ import org.apache.hadoop.yarn.api.protocolrecords.StartContainersRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
@@ -270,7 +269,7 @@ public class ApplicationMaster extends CompositeService {
         throw new IllegalArgumentException("Application Attempt Id not set in the environment");
       }
     } else {
-      ContainerId containerId =
+      org.apache.hadoop.yarn.api.records.ContainerId containerId =
           ConverterUtils.toContainerId(envs.get(CONTAINER_ID));
       appAttemptID = containerId.getApplicationAttemptId();
     }
@@ -593,7 +592,7 @@ public class ApplicationMaster extends CompositeService {
       LOG.info("Thread started.");
       launchResults.add(launchTask);
       LOG.info("Added launch result.");
-      mpdListener.addContainer(allocatedContainer.getId().getId());
+      mpdListener.addContainer(new ContainerId(allocatedContainer.getId()));
     }
 
     Boolean allLaunchSuccess = true;
@@ -965,18 +964,8 @@ public class ApplicationMaster extends CompositeService {
       // Set the env variables to be setup in the env where the container will be run
       LOG.info("Set the environment for the application master");
       Map<String, String> env = new HashMap<String, String>();
-      // Add AppMaster.jar location to classpath. At some point we should not be
-      // required to add the hadoop specific classpaths to the env. It should be
-      // provided out of the box. For now setting all required classpaths
-      // including the classpath to "." for the application jar
-      StringBuilder classPathEnv = new StringBuilder("${CLASSPATH}:./*");
-      for (String c : conf.getStrings(
-          YarnConfiguration.YARN_APPLICATION_CLASSPATH,
-          MPIConfiguration.DEFAULT_MPI_APPLICATION_CLASSPATH)) {
-        classPathEnv.append(':');
-        classPathEnv.append(c.trim());
-      }
-      env.put("CLASSPATH", classPathEnv.toString());
+
+      env.put("CLASSPATH", System.getenv("CLASSPATH"));
       env.put("MPIEXECDIR", mpiExecDir);
 
       env.put(MPIConstants.CONTAININPUT, Utilities.encodeSplit(fileSplits));

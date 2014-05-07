@@ -1,6 +1,3 @@
-/**
- * 
- */
 package com.taobao.yarn.mpi.server;
 
 /**
@@ -11,7 +8,7 @@ public interface MPDListener {
    * Add the container to MPD Listener, so the container will keep track of their statuses
    * @param containerId Container Id
    */
-  void addContainer(int containerId);
+  void addContainer(ContainerId containerId);
 
   /**
    * Check whether all the smpd process is started

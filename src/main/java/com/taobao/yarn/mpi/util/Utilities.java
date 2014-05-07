@@ -36,7 +36,6 @@ import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
-import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
@@ -50,6 +49,7 @@ import org.apache.hadoop.yarn.util.Records;
 
 import com.taobao.yarn.mpi.MPIConfiguration;
 import com.taobao.yarn.mpi.api.MPIClientProtocol;
+import com.taobao.yarn.mpi.server.ContainerId;
 
 public final class Utilities {
   private static Log LOG = LogFactory.getLog(Utilities.class);
@@ -133,7 +133,7 @@ public final class Utilities {
       ApplicationAttemptId appAttemptID,
       ApplicationMasterProtocol resourceManager,
       List<ResourceRequest> requestedContainers,
-      List<ContainerId> releasedContainers,
+      List<org.apache.hadoop.yarn.api.records.ContainerId> releasedContainers,
       float progress) throws YarnException, IOException {
     AllocateRequest req = AllocateRequest.newInstance(
         rmRequestID.incrementAndGet(), progress,
@@ -149,7 +149,8 @@ public final class Utilities {
     for (ResourceRequest  rsrcReq : requestedContainers) {
       LOG.info("Requested container ask: " + rsrcReq.toString());
     }
-    for (ContainerId id : releasedContainers) {
+    for (org.apache.hadoop.yarn.api.records.ContainerId id :
+         releasedContainers) {
       LOG.info("Released container, id=" + id.getId());
     }
 
@@ -366,11 +367,15 @@ public final class Utilities {
    * @param containerId
    * @return
    */
-  public static String getDownLoadDir(Configuration conf, String appAttemptID, int containerId ){
+  public static String getDownLoadDir(
+      Configuration conf, String appAttemptID, ContainerId containerId ){
     StringBuilder post = new StringBuilder(100);
     post.append("/mpidownload/").append(containerId).append("/");
     StringBuilder dir = new StringBuilder(100);
-    dir.append(conf.get("mpi.local.dir", conf.get("hadoop.tmp.dir" , "/tmp") + "/mpidata")).append("/").append(appAttemptID);
+
+    String mpiTmpDir = conf.get("hadoop.tmp.dir" , "/tmp");
+    String mpiLocalDir = conf.get("mpi.local.dir", mpiTmpDir + "/mpidata");
+    dir.append(mpiLocalDir).append("/").append(appAttemptID);
     return dir.toString() + post.toString();
 
   }

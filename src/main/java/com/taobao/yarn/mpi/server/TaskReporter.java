@@ -17,11 +17,12 @@ public class TaskReporter extends Thread {
 
   private Integer taskPingInterval;
 
-  private Integer containerId;
+  private ContainerId containerId;
 
   private Integer taskPingRetry;
 
-  public TaskReporter(MPDProtocol protocol, Configuration conf, Integer containerId){
+  public TaskReporter(MPDProtocol protocol, Configuration conf,
+      ContainerId containerId){
     this.protocol = protocol;
     this.conf = conf;
     this.containerId = containerId;
