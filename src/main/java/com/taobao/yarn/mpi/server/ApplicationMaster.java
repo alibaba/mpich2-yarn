@@ -867,7 +867,8 @@ public class ApplicationMaster extends CompositeService {
   }
 
   private String[] generateEnvStrs() {
-    String userHomeDir = conf.get(MPIConfiguration.MPI_NM_STARTUP_USERDIR, "/home/hadoop");
+    String userHomeDir = conf.get(MPIConfiguration.MPI_NM_STARTUP_USERDIR,
+        "/home" + "/" + System.getenv("USER"));
     Map<String, String> envs = System.getenv();
     String[] envStrs = new String[envs.size()];
     int i = 0;

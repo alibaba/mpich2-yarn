@@ -19,6 +19,7 @@ public class ContainerId implements Writable {
     this.id = id;
   }
 
+  @Override
   public void readFields(DataInput in) throws IOException {
     StringBuilder sb = new StringBuilder();
     char c = in.readChar();
@@ -29,9 +30,19 @@ public class ContainerId implements Writable {
     this.id = ConverterUtils.toContainerId(sb.toString());
   }
 
+  @Override
   public void write(DataOutput out) throws IOException {
     out.writeChars(toString() + "$");
   }
 
+  @Override
   public String toString() { return this.id.toString(); }
+
+  @Override
+  public int hashCode() { return toString().hashCode(); }
+
+  @Override
+  public boolean equals(Object o) {
+    return toString().equals(((ContainerId) o).toString());
+  }
 }
