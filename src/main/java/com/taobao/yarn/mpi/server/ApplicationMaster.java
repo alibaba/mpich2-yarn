@@ -766,15 +766,17 @@ public class ApplicationMaster extends CompositeService {
     commandBuilder.append(phrase);
     commandBuilder.append(" -port ");
     commandBuilder.append(port);
+
     commandBuilder.append(" -hosts ");
-    commandBuilder.append(allContainers.size());
-    for (Container container : allContainers) {
-      String host = container.getNodeId().getHost();
+    Set<String> hosts = hostToProcNum.keySet();
+    commandBuilder.append(hosts.size());
+    for (String host : hosts) {
       commandBuilder.append(" ");
       commandBuilder.append(host);
       commandBuilder.append(" ");
-      commandBuilder.append(ppc);
+      commandBuilder.append(hostToProcNum.get(host));
     }
+
     commandBuilder.append(" ");
     commandBuilder.append(mpiExecDir);
     commandBuilder.append("/MPIExec");
