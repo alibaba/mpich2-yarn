@@ -553,6 +553,7 @@ public class ApplicationMaster extends CompositeService {
     try {
       allocator = createContainersAllocator();
       allContainers = allocator.allocateContainers(numTotalContainers);
+      if (allContainers == null) throw new Exception();
     } catch (Exception e) {
       LOG.error("Error allocating containers.");
       e.printStackTrace();

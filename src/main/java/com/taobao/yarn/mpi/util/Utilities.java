@@ -78,19 +78,33 @@ public final class Utilities {
    */
   public static ContainerRequest setupContainerAskForRM(
       int requestPriority, int containerMemory) {
+    return setupContainerAskForRM(requestPriority, containerMemory, null);
+  }
 
-    // set the priority for the request
-    Priority pri = Records.newRecord(Priority.class);
-    // TODO - what is the range for priority? how to decide?
-    pri.setPriority(requestPriority);
+  /**
+   * Setup the request that will be sent to the RM for the container ask.
+   */
+  public static ContainerRequest setupContainerAskForRM(
+      int requestPriority, int containerMemory, String node) {
 
     // Set up resource type requirements
     // For now, only memory is supported so we set memory requirements
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(containerMemory);
 
+    String[] nodes = null;
+    if (node != null) {
+      nodes = new String[1];
+      nodes[0] = node;
+    }
+
+    // set the priority for the request
+    Priority pri = Records.newRecord(Priority.class);
+    // TODO - what is the range for priority? how to decide?
+    pri.setPriority(requestPriority);
+
     ContainerRequest request = new ContainerRequest(
-        capability, null, null, pri);
+        capability, nodes, null, pri);
     return request;
   }
 

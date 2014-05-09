@@ -30,7 +30,6 @@ import com.taobao.yarn.mpi.util.Utilities;
  */
 public class MultiMPIProcContainersAllocator extends ContainersAllocator {
   private static final Log LOG = LogFactory.getLog(MultiMPIProcContainersAllocator.class);
-  private AMRMClient rmClient = null;
   private final int requestPriority;
   private final int containerMemory;
   private final AtomicInteger rmRequestID = new AtomicInteger();
@@ -47,6 +46,8 @@ public class MultiMPIProcContainersAllocator extends ContainersAllocator {
   public MultiMPIProcContainersAllocator(AMRMClient rmClient,
       Integer reuqestPriority, Integer containerMemory,
       ApplicationAttemptId appAttemptId) {
+    super(rmClient);
+
     this.rmClient = rmClient;
     this.requestPriority = reuqestPriority;
     this.containerMemory = containerMemory;

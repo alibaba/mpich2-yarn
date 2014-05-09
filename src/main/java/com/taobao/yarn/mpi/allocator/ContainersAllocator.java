@@ -21,6 +21,11 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 public abstract class ContainersAllocator {
 
    private static final Log LOG = LogFactory.getLog(ContainersAllocator.class);
+   protected AMRMClient rmClient = null;
+
+   public ContainersAllocator(AMRMClient rmClient) {
+     this.rmClient = rmClient;
+   }
 
   /**
    * Allocate Containers
