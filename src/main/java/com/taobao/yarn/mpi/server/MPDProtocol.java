@@ -19,12 +19,12 @@ public interface MPDProtocol extends VersionedProtocol{
    * RPC Method, report the container's status
    * @param containerStatus The current container's status
    */
-  void reportStatus(int containerId, MPDStatus containerStatus);
+  void reportStatus(ContainerId containerId, MPDStatus containerStatus);
 
   /**
    * RPC Method, container ping the applicationMasater in order to tell that it is alive
    * @param containerId
    */
-  void ping(int containerId);
+  void ping(ContainerId containerId);
 
 }

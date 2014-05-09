@@ -27,14 +27,15 @@ static void str_replace(char *str, char *find_chars, char replace_char);
 #define FCNAME "smpd_open_smpd_file"
 static FILE * smpd_open_smpd_file(SMPD_BOOL create)
 {
-    char *homedir;
+    char homedir[SMPD_MAX_PATH_LENGTH];
     struct stat s;
     FILE *fin = NULL;
 
     smpd_enter_fn(FCNAME);
     if (smpd_process.smpd_filename[0] == '\0')
     {
-	homedir = getenv("HOME");
+        strcpy(homedir, "/home/");
+        strcat(homedir, getenv("USER"));
 	if (homedir != NULL)
 	{
 	    strcpy(smpd_process.smpd_filename, homedir);

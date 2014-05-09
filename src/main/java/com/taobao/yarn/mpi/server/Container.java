@@ -28,6 +28,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.ipc.RPC;
+import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.util.ConverterUtils;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.taobao.yarn.mpi.MPIConfiguration;
@@ -37,6 +39,7 @@ import com.taobao.yarn.mpi.util.LocalFileUtils;
 import com.taobao.yarn.mpi.util.MPDException;
 import com.taobao.yarn.mpi.util.MPIResult;
 import com.taobao.yarn.mpi.util.Utilities;
+//import com.taobao.yarn.mpi.util.LOG;
 
 public class Container {
 
@@ -58,7 +61,7 @@ public class Container {
   private MPDProtocol protocol;
   private String appMasterHost;
   private int appMasterPort;
-  private int containerId = -1;
+  private ContainerId containerId = null;
 
   private String appAttemptID;
 
@@ -91,23 +94,27 @@ public class Container {
     }
     phrase = cliParser.getOptionValue("phrase");
 
-    containerId = Integer.parseInt(System.getenv("CONTAINER_ID"));
-    if (containerId == -1)
+    containerId = new ContainerId(ConverterUtils.toContainerId(System.getenv(
+        ApplicationConstants.Environment.CONTAINER_ID.toString())));
+    if (containerId == null) {
+      LOG.error("No container ID in env.");
       throw new ParseException("Container Id is not defined");
+    }
 
     appMasterHost = System.getenv("APPMASTER_HOST");
     appMasterPort = Integer.valueOf(System.getenv("APPMASTER_PORT"));
-    containerId = Integer.valueOf(System.getenv("CONTAINER_ID"));
     //    conf = new Configuration();
     InetSocketAddress addr = new InetSocketAddress(appMasterHost, appMasterPort);
-    protocol = RPC.getProxy(MPDProtocol.class, MPDProtocol.versionID, addr, conf);
+    protocol = RPC.getProxy(
+        MPDProtocol.class, MPDProtocol.versionID, addr, conf);
     protocol.reportStatus(containerId, MPDStatus.INITIALIZED);
     taskReporter = new TaskReporter(protocol, conf, containerId);
     taskReporter.setDaemon(true);
     taskReporter.start();
 
     Map<String, String> envs = System.getenv();
-    localDir = Utilities.getDownLoadDir(conf, envs.get(MPIConstants.APPATTEMPTID), containerId);
+    localDir = Utilities.getDownLoadDir(
+        conf, envs.get(MPIConstants.APPATTEMPTID), containerId);
     LOG.info(String.format("localDir:%s", localDir));
     appAttemptID=envs.get(MPIConstants.APPATTEMPTID);
     downloadSave = conf.getBoolean(MPIConfiguration.MPI_CONTAINER_DOWNLOAD_SAVE, false);
@@ -255,7 +262,8 @@ public class Container {
         Scanner stdErr = new Scanner(pc.getErrorStream());
         while (stdErr.hasNextLine()) {
           String err = stdErr.nextLine();
-          System.err.println(String.format("Continer %d error:%s", containerId, err));
+          System.err.println(String.format("Continer %s error:%s",
+              containerId.toString(), err));
         }
       }
     });
@@ -265,12 +273,15 @@ public class Container {
       int ret = pc.waitFor();
       if (ret != 0) {
         runSuccess = false;
-        LOG.error(String.format("Container %d, smpd crash, smpd returned value: %d", containerId, ret));
+        LOG.error(String.format(
+            "Container %s, smpd crash, smpd returned value: %d",
+            containerId.toString(), ret));
         protocol.reportStatus(containerId, MPDStatus.MPD_CRASH);
       } else {
         runSuccess = true;
         protocol.reportStatus(containerId, MPDStatus.FINISHED);
-        LOG.info(String.format("Container %d, smpd finish successfully", containerId));
+        LOG.info(String.format(
+            "Container %s, smpd finish successfully", containerId.toString()));
       }
     } catch (InterruptedException e) {
       LOG.error("Process Interrupted.", e);
@@ -289,8 +300,13 @@ public class Container {
    * @throws InterruptedException
    * @throws ExecutionException
    */
-  public static void main(String[] args) throws IOException, ParseException,InterruptedException,ExecutionException,Exception {
-    printDebugInfo();
+  public static void main(String[] args) {
+    try {
+      printDebugInfo();
+    } catch (Exception e) {
+      LOG.error("Error print debug info.");
+      e.printStackTrace();
+    }
 
     final Container container = new Container();
     try {
@@ -329,26 +345,11 @@ public class Container {
         LOG.error("Container init failed!");
         System.exit(-1);
       }
-    } catch (IOException e) {
-      container.getProtocol().reportStatus(container.getContainerId(), MPDStatus.ERROR_FINISHED);
-      LOG.error("Error Message:",e);
-      throw e;
-    } catch (ParseException e) {
-      container.getProtocol().reportStatus(container.getContainerId(), MPDStatus.ERROR_FINISHED);
-      LOG.error("Error Message:",e);
-      throw e;
-    } catch (InterruptedException e) {
-      container.getProtocol().reportStatus(container.getContainerId(), MPDStatus.ERROR_FINISHED);
-      LOG.error("Error Message:",e);
-      throw e;
-    } catch (ExecutionException e) {
-      container.getProtocol().reportStatus(container.getContainerId(), MPDStatus.ERROR_FINISHED);
-      LOG.error("Error Message:",e);
-      throw e;
     } catch (Exception e) {
-      container.getProtocol().reportStatus(container.getContainerId(), MPDStatus.ERROR_FINISHED);
-      LOG.error("Error Message:",e);
-      throw e;
+      LOG.error("Error executing MPI task in container.");
+      e.printStackTrace();
+      container.getProtocol().reportStatus(
+          container.getContainerId(), MPDStatus.ERROR_FINISHED);
     }
   }
 
@@ -387,7 +388,7 @@ public class Container {
   }
 
 
-  public int getContainerId() {
+  public ContainerId getContainerId() {
     return containerId;
   }
 }

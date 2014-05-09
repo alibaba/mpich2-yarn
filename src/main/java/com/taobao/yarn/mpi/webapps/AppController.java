@@ -31,7 +31,7 @@ public class AppController extends Controller {
     for (Container container : containers) {
       set(MPIWebConst.CONTAINER_HTTP_ADDRESS_PREFIX + i, container.getNodeHttpAddress());
       set(MPIWebConst.CONTAINER_ID_PREFIX + i, container.getId().toString());
-      set(MPIWebConst.CONTAINER_STATUS_PREFIX + i, container.getState().toString());
+      //set(MPIWebConst.CONTAINER_STATUS_PREFIX + i, container.getState().toString());
       i++;
     }
     render(IndexPage.class);

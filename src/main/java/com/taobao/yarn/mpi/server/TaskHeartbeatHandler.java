@@ -8,8 +8,8 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.yarn.Clock;
-import org.apache.hadoop.yarn.service.AbstractService;
+import org.apache.hadoop.yarn.util.Clock;
+import org.apache.hadoop.service.AbstractService;
 
 import com.taobao.yarn.mpi.MPIConfiguration;
 
@@ -51,7 +51,7 @@ public class TaskHeartbeatHandler extends AbstractService {
 
   private final Clock clock;
 
-  private ConcurrentMap<Integer, ReportTime> runningMPDs;
+  private ConcurrentMap<ContainerId, ReportTime> runningMPDs;
 
   public TaskHeartbeatHandler(MPDListenerImpl listener, Clock clock,
       int numThreads) {
@@ -59,7 +59,7 @@ public class TaskHeartbeatHandler extends AbstractService {
     this.mpdListener = listener;
     this.clock = clock;
     runningMPDs =
-      new ConcurrentHashMap<Integer, ReportTime>(16, 0.75f, numThreads);
+      new ConcurrentHashMap<ContainerId, ReportTime>(16, 0.75f, numThreads);
     LOG.info("TaskHeartbeatHandler starts successfully");
   }
 
@@ -86,18 +86,18 @@ public class TaskHeartbeatHandler extends AbstractService {
     super.stop();
   }
 
-  public void pinged(Integer containerId) {
+  public void pinged(ContainerId containerId) {
       ReportTime time = runningMPDs.get(containerId);
       if(time != null) {
         time.setLastPing(clock.getTime());
       }
     }
 
-  public void register(Integer containerId) {
+  public void register(ContainerId containerId) {
     runningMPDs.put(containerId, new ReportTime(clock.getTime()));
   }
 
-  public void unregister(Integer containerId) {
+  public void unregister(ContainerId containerId) {
     runningMPDs.remove(containerId);
   }
 
@@ -106,17 +106,20 @@ public class TaskHeartbeatHandler extends AbstractService {
     @Override
     public void run() {
       while (!Thread.currentThread().isInterrupted()) {
-        Iterator<Map.Entry<Integer, ReportTime>> iterator =
+        Iterator<Map.Entry<ContainerId, ReportTime>> iterator =
           runningMPDs.entrySet().iterator();
         long currentTime = clock.getTime();
         while (iterator.hasNext()) {
-          Map.Entry<Integer, ReportTime> entry = iterator.next();
+          Map.Entry<ContainerId, ReportTime> entry = iterator.next();
           boolean pingTimedOut =
               (currentTime > (entry.getValue().getLastPing() + taskTimeOut));
           if(pingTimedOut) {
-            Map.Entry<Integer, ReportTime> containerIdToReport = iterator.next();
-            mpdListener.reportStatus(containerIdToReport.getKey(), MPDStatus.DISCONNECTED);
-            LOG.error(String.format("containerId:%d timed out after %d second", containerIdToReport.getKey(), taskTimeOut/1000));
+            Map.Entry<ContainerId, ReportTime> containerIdToReport =
+                iterator.next();
+            mpdListener.reportStatus(
+                containerIdToReport.getKey(), MPDStatus.DISCONNECTED);
+            LOG.error(String.format("containerId:%s timed out after %d second",
+                containerIdToReport.getKey().toString(), taskTimeOut/1000));
           }
         }
         try {

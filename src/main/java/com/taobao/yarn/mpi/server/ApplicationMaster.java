@@ -35,19 +35,18 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.service.CompositeService;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
-import org.apache.hadoop.yarn.api.ClientRMProtocol;
-import org.apache.hadoop.yarn.api.ContainerManager;
+import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
+import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.FinishApplicationMasterRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
-import org.apache.hadoop.yarn.api.records.AMResponse;
+import org.apache.hadoop.yarn.api.protocolrecords.StartContainersRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
@@ -56,10 +55,11 @@ import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.client.api.AMRMClient;
+import org.apache.hadoop.yarn.client.api.NMClient;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
-import org.apache.hadoop.yarn.service.CompositeService;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
@@ -70,6 +70,7 @@ import com.taobao.yarn.mpi.allocator.DistinctContainersAllocator;
 import com.taobao.yarn.mpi.allocator.MultiMPIProcContainersAllocator;
 import com.taobao.yarn.mpi.util.FileSplit;
 import com.taobao.yarn.mpi.util.InputFile;
+//import com.taobao.yarn.mpi.util.LOG;
 import com.taobao.yarn.mpi.util.MPDException;
 import com.taobao.yarn.mpi.util.MPIResult;
 import com.taobao.yarn.mpi.util.Utilities;
@@ -81,10 +82,10 @@ public class ApplicationMaster extends CompositeService {
   private final Configuration conf;
   // YARN RPC to communicate with the Resource Manager or Node Manager
   private final YarnRPC rpc;
-  // Handle to communicate with the Resource Manager
-  private AMRMProtocol resourceManager;
-  // Handle to talk to the Resource Manager/Applications Manager
-  private final ClientRMProtocol applicationsManager;
+  // Handle to talk to the ResourceManager
+  private AMRMClient rmClient = null;
+  // Handle to talk to the NodeManager
+  private NMClient nmClient = null;
   // Application Attempt Id ( combination of attemptId and fail count )
   private ApplicationAttemptId appAttemptID;
   // Host name of the container, for status update of clients
@@ -133,6 +134,10 @@ public class ApplicationMaster extends CompositeService {
   // true if all the containers download the same file
   private boolean isAllSame = true;
 
+  private static final String NM_HOST_ENV = "NM_HOST";
+  private static final String CONTAINER_ID =
+      ApplicationConstants.Environment.CONTAINER_ID.toString();
+
   //MPI Input Data location
   private final ConcurrentHashMap<String, InputFile> fileToLocation = new ConcurrentHashMap<String, InputFile>();
 
@@ -170,8 +175,9 @@ public class ApplicationMaster extends CompositeService {
         System.exit(0);
       }
       result = appMaster.run();
-    } catch (Throwable t) {
-      LOG.fatal("Error running ApplicationMaster", t);
+    } catch (Exception e) {
+      LOG.fatal("Error running ApplicationMaster", e);
+      e.printStackTrace();
       System.exit(1);
     }finally{
       if (appMaster != null) {
@@ -214,7 +220,6 @@ public class ApplicationMaster extends CompositeService {
     // Set up the configuration and RPC
     conf = new MPIConfiguration();
     rpc = YarnRPC.create(conf);
-    applicationsManager = connectToASM();
     dfs = FileSystem.get(conf);
   }
 
@@ -254,16 +259,18 @@ public class ApplicationMaster extends CompositeService {
     Map<String, String> envs = System.getenv();
 
     appAttemptID = Records.newRecord(ApplicationAttemptId.class);
-    if (!envs.containsKey(ApplicationConstants.AM_CONTAINER_ID_ENV)) {
+    if (!envs.containsKey(CONTAINER_ID)) {
       // Only for test purpose
       if (cliParser.hasOption("app_attempt_id")) {
         String appIdStr = cliParser.getOptionValue("app_attempt_id", "");
         appAttemptID = ConverterUtils.toApplicationAttemptId(appIdStr);
       } else {
+        LOG.error("Application Attempt Id not set in the environment");
         throw new IllegalArgumentException("Application Attempt Id not set in the environment");
       }
     } else {
-      ContainerId containerId = ConverterUtils.toContainerId(envs.get(ApplicationConstants.AM_CONTAINER_ID_ENV));
+      org.apache.hadoop.yarn.api.records.ContainerId containerId =
+          ConverterUtils.toContainerId(envs.get(CONTAINER_ID));
       appAttemptID = containerId.getApplicationAttemptId();
     }
 
@@ -370,10 +377,9 @@ public class ApplicationMaster extends CompositeService {
       }
     }
 
-    if (envs.containsKey(ApplicationConstants.NM_HOST_ENV)) {
-      appMasterHostname = envs.get(ApplicationConstants.NM_HOST_ENV);
-      LOG.info("Environment " + ApplicationConstants.NM_HOST_ENV + " is "
-          + appMasterHostname);
+    if (envs.containsKey(NM_HOST_ENV)) {
+      appMasterHostname = envs.get(NM_HOST_ENV);
+      LOG.info("Environment " + NM_HOST_ENV + " is " + appMasterHostname);
     }
 
     mpiExecDir = Utilities.getMpiExecDir(conf, appAttemptID);
@@ -474,6 +480,21 @@ public class ApplicationMaster extends CompositeService {
    * Initialize and start RPC services
    */
   public void initAndStartRPCServices() {
+    // set the required info into the registration request:
+    // host on which the app master is running
+    // rpc port on which the app master accepts requests from the client
+    // tracking url for the app master
+    LOG.info("Creating AM<->RM Protocol...");
+    rmClient = AMRMClient.createAMRMClient();
+    rmClient.init(conf);
+    rmClient.start();
+
+    // also init NMClient here
+    LOG.info("Creating AM<->NM Protocol...");
+    nmClient = NMClient.createNMClient();
+    nmClient.init(conf);
+    nmClient.start();
+
     LOG.info("Initializing MPDProtocal's RPC services...");
     mpdListener = new MPDListenerImpl();
     mpdListener.init(conf);
@@ -497,32 +518,28 @@ public class ApplicationMaster extends CompositeService {
   public boolean run() throws IOException {
     LOG.info("Starting ApplicationMaster");
     // Connect to ResourceManager
-    resourceManager = connectToRM();
 
     // TODO Setup local RPC Server to accept status requests directly from clients
     // TODO use the rpc port info to register with the RM for the client to send requests to this app master
     initAndStartRPCServices();
-    // Register self with ResourceManager
-    RegisterApplicationMasterResponse response = registerToRM();
-    // Dump out information about cluster capability as seen by the resource manager
-    int minMem = response.getMinimumResourceCapability().getMemory();
-    int maxMem = response.getMaximumResourceCapability().getMemory();
-    LOG.info("Min mem capabililty of resources in this cluster " + minMem);
-    LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
 
-    // A resource ask has to be atleast the minimum of the capability of the cluster, the value has to be
-    // a multiple of the min value and cannot exceed the max.
-    // If it is not an exact multiple of min, the RM will allocate to the nearest multiple of min
-    if (containerMemory < minMem) {
-      LOG.info("Container memory specified below min threshold of cluster. Using min value."
-          + ", specified=" + containerMemory
-          + ", min=" + minMem);
-      containerMemory = minMem;  // container memory should be multiple of minMem
-    } else if (containerMemory > maxMem) {
-      LOG.info("Container memory specified above max threshold of cluster. Using max value."
-          + ", specified=" + containerMemory
-          + ", max=" + maxMem);
-      containerMemory = maxMem;
+    // Register self with ResourceManager
+    try {
+      RegisterApplicationMasterResponse response = registerToRM();
+      // Dump out information about cluster capability as seen by the
+      // resource manager
+      int maxMem = response.getMaximumResourceCapability().getMemory();
+      //LOG.info("Min mem capabililty of resources in this cluster " + minMem);
+      LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
+      if (containerMemory > maxMem) {
+        LOG.info("Container memory specified above max threshold of cluster. Using max value."
+            + ", specified=" + containerMemory
+            + ", max=" + maxMem);
+        containerMemory = maxMem;
+      }
+    } catch (Exception e) {
+      LOG.error("Error registering to ResourceManger.");
+      e.printStackTrace();
     }
 
     // Setup heartbeat emitter
@@ -532,9 +549,17 @@ public class ApplicationMaster extends CompositeService {
     // defined by DEFAULT_RM_AM_EXPIRY_INTERVAL_MS. The allocate calls to the RM
     // count as heartbeats so, for now, this additional heartbeat emitter is not required.
     List<FutureTask<Boolean>> launchResults = new ArrayList<FutureTask<Boolean>>();
-    ContainersAllocator allocator = createContainersAllocator();
-    allContainers = allocator.allocateContainers(numTotalContainers);
+    ContainersAllocator allocator = null;
+    try {
+      allocator = createContainersAllocator();
+      allContainers = allocator.allocateContainers(numTotalContainers);
+      if (allContainers == null) throw new Exception();
+    } catch (Exception e) {
+      LOG.error("Error allocating containers.");
+      e.printStackTrace();
+    }
     numTotalContainers = allContainers.size();
+    LOG.info(numTotalContainers + " containers allocated.");
     // TODO Available where we use MultiMPIProcContainersAllocator strategy
     hostToProcNum = allocator.getHostToProcNum();
     AtomicInteger rmRequestID = new AtomicInteger(allocator.getCurrentRequestId());
@@ -548,17 +573,27 @@ public class ApplicationMaster extends CompositeService {
           + ", containerNode=" + allocatedContainer.getNodeId().getHost()
           + ":" + allocatedContainer.getNodeId().getPort()
           + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress()
-          + ", containerState" + allocatedContainer.getState()
-          + ", containerResourceMemory" + allocatedContainer.getResource().getMemory());
-      LaunchContainer runnableLaunchContainer =
-          new LaunchContainer(allocatedContainer, splits.get(Integer.valueOf(allocatedContainer.getId().getId())), resultToDestination.values());
-      // launch and start the container on a separate thread to keep the main thread
-      // unblocked as all containers may not be allocated/launched at one go.
-      FutureTask<Boolean> launchTask = new FutureTask<Boolean>(runnableLaunchContainer);
+          //+ ", containerState" + allocatedContainer.getState()
+          + ", containerResourceMemory"
+          + allocatedContainer.getResource().getMemory());
+      LaunchContainer runnableLaunchContainer = new LaunchContainer(
+          allocatedContainer, nmClient,
+          splits.get(Integer.valueOf(allocatedContainer.getId().getId())),
+          resultToDestination.values());
+      LOG.info("Created LaunchContainer.");
+      // launch and start the container on a separate thread to keep the
+      // main thread unblocked as all containers may not
+      // be allocated/launched at one go.
+      FutureTask<Boolean> launchTask =
+          new FutureTask<Boolean>(runnableLaunchContainer);
+      LOG.info("Created LaunchTask.");
       Thread launchThread = new Thread(launchTask);
+      LOG.info("Created Thread.");
       launchThread.start();
+      LOG.info("Thread started.");
       launchResults.add(launchTask);
-      mpdListener.addContainer(allocatedContainer.getId().getId());
+      LOG.info("Added launch result.");
+      mpdListener.addContainer(new ContainerId(allocatedContainer.getId()));
     }
 
     Boolean allLaunchSuccess = true;
@@ -571,10 +606,13 @@ public class ApplicationMaster extends CompositeService {
       LOG.error("launch error:", e);
       this.appendMsg(org.apache.hadoop.util.StringUtils.stringifyException(e));
     }
+
     boolean isSuccess = true;
+    String diagnostics = null;
     //all tasks are launched successfully
     if (allLaunchSuccess) {
       this.appendMsg("all containers are launched successfully");
+      LOG.info("all containers are launched successfully");
       try {
         // Wait all SMPD for staring
         while (!mpdListener.isAllMPDStarted()) {
@@ -589,17 +627,14 @@ public class ApplicationMaster extends CompositeService {
           //check whether all the smpd process is healthy
           boolean allHealthy = mpdListener.isAllHealthy();
           if (allHealthy) {
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Sending empty request to RM, to let RM know we are alive");
-            }
-            AMResponse amResp = Utilities.sendContainerAskToRM(
-                rmRequestID, appAttemptID, resourceManager,
-                new ArrayList<ResourceRequest>(),
-                new ArrayList<ContainerId>(),
+            LOG.debug("Sending empty request to RM, to let RM know we are " + 
+                      "alive");
+            AllocateResponse amResp = rmClient.allocate(
                 (float) numCompletedContainers.get() / numTotalContainers);
 
             // Check what the current available resources in the cluster are
-            // TODO should we do anything if the available resources are not enough?
+            // TODO should we do anything if the available resources are not
+            // enough?
             Resource availableResources = amResp.getAvailableResources();
             if (LOG.isDebugEnabled()) {
               LOG.debug("Current available resources in the cluster " + availableResources);
@@ -612,7 +647,7 @@ public class ApplicationMaster extends CompositeService {
             }
             for (ContainerStatus containerStatus : completedContainers) {
               LOG.info("Got container status for containerID= " + containerStatus.getContainerId()
-                  + ", state=" + containerStatus.getState()
+                  //+ ", state=" + containerStatus.getState()
                   + ", exitStatus=" + containerStatus.getExitStatus()
                   + ", diagnostics=" + containerStatus.getDiagnostics());
 
@@ -662,31 +697,30 @@ public class ApplicationMaster extends CompositeService {
 
         if (numFailedContainers.get() == 0) {
           isSuccess = true;
-          finishApp(resourceManager, appAttemptID, FinalApplicationStatus.SUCCEEDED, null);
         } else {
           isSuccess = false;
-          String diagnostics = "Diagnostics."
+          diagnostics = "Diagnostics."
               + ", total=" + numTotalContainers
               + ", completed=" + numCompletedContainers.get()
               + ", failed=" + numFailedContainers.get();
-          finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, diagnostics);
         }
-      } catch (MPDException e) {
-        isSuccess=false;
-        LOG.error("error occurs while starting MPD", e);
-        this.appendMsg("error occurs while starting MPD:" + org.apache.hadoop.util.StringUtils.stringifyException(e));
-        finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, e.getMessage());
       } catch (Exception e) {
         isSuccess=false;
         LOG.error("error occurs while starting MPD", e);
+        e.printStackTrace();
         this.appendMsg("error occurs while starting MPD:" + org.apache.hadoop.util.StringUtils.stringifyException(e));
-        finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, e.getMessage());
+        diagnostics = e.getMessage();
       }
     } else {
       //the applicationMaster finish with failure and realease the containers
       isSuccess=false;
-      finishApp(resourceManager, appAttemptID, FinalApplicationStatus.FAILED, "error occurs while launching containers");
+      diagnostics = "Error occurs while launching containers.";
     }
+
+
+    unregisterApp(isSuccess ? FinalApplicationStatus.SUCCEEDED
+                            : FinalApplicationStatus.FAILED, diagnostics);
+
     return isSuccess;
   }
 
@@ -709,17 +743,17 @@ public class ApplicationMaster extends CompositeService {
     }
   }
 
-  /**
-   * @throws YarnRemoteException
+  /**Unregister this ApplicationMaster to RM.
    */
-  private void finishApp(final AMRMProtocol resourceManager, final ApplicationAttemptId appAttemptID, final FinalApplicationStatus status, final String diagnostics) throws YarnRemoteException {
-    FinishApplicationMasterRequest finishReq = Records.newRecord(FinishApplicationMasterRequest.class);
-    finishReq.setAppAttemptId(appAttemptID);
-    finishReq.setFinishApplicationStatus(status);
-    if(!StringUtils.isBlank(diagnostics)) {
-      finishReq.setDiagnostics(diagnostics);
+  private void unregisterApp(FinalApplicationStatus status,
+      String diagnostics) {
+    try { 
+      rmClient.unregisterApplicationMaster(status, diagnostics,
+          appMasterTrackingUrl );
+    } catch (Exception e) {
+      LOG.error("Error unregistering AM.");
+      e.printStackTrace();
     }
-    resourceManager.finishApplicationMaster(finishReq);
   }
 
   /**
@@ -733,15 +767,17 @@ public class ApplicationMaster extends CompositeService {
     commandBuilder.append(phrase);
     commandBuilder.append(" -port ");
     commandBuilder.append(port);
+
     commandBuilder.append(" -hosts ");
-    commandBuilder.append(allContainers.size());
-    for (Container container : allContainers) {
-      String host = container.getNodeId().getHost();
+    Set<String> hosts = hostToProcNum.keySet();
+    commandBuilder.append(hosts.size());
+    for (String host : hosts) {
       commandBuilder.append(" ");
       commandBuilder.append(host);
       commandBuilder.append(" ");
-      commandBuilder.append(ppc);
+      commandBuilder.append(hostToProcNum.get(host));
     }
+
     commandBuilder.append(" ");
     commandBuilder.append(mpiExecDir);
     commandBuilder.append("/MPIExec");
@@ -834,7 +870,8 @@ public class ApplicationMaster extends CompositeService {
   }
 
   private String[] generateEnvStrs() {
-    String userHomeDir = conf.get(MPIConfiguration.MPI_NM_STARTUP_USERDIR, "/home/hadoop");
+    String userHomeDir = conf.get(MPIConfiguration.MPI_NM_STARTUP_USERDIR,
+        "/home" + "/" + System.getenv("USER"));
     Map<String, String> envs = System.getenv();
     String[] envStrs = new String[envs.size()];
     int i = 0;
@@ -850,7 +887,7 @@ public class ApplicationMaster extends CompositeService {
   }
 
   /**
-   * Thread to connect to the {@link ContainerManager} and
+   * Thread to connect to the {@link ContainerManagementProtocol} and
    * launch the container that will execute the shell command.
    */
   private class LaunchContainer implements Callable<Boolean> {
@@ -858,8 +895,10 @@ public class ApplicationMaster extends CompositeService {
     Log LOG = LogFactory.getLog(LaunchContainer.class);
     // Allocated container
     Container container;
-    // Handle to communicate with ContainerManager
-    ContainerManager cm;
+    // Handle to communicate with ResourceManager
+    AMRMClient rmClient = null;
+    // Handle to communicate with NodeManager
+    NMClient nmClient = null;
 
     //files needing to download
     private final List<FileSplit> fileSplits;
@@ -869,22 +908,12 @@ public class ApplicationMaster extends CompositeService {
     /**
      * @param lcontainer Allocated container
      */
-    public LaunchContainer(Container lcontainer, List<FileSplit> fileSplits, Collection<MPIResult> results) {
+    public LaunchContainer(Container lcontainer, NMClient client,
+        List<FileSplit> fileSplits, Collection<MPIResult> results) {
       this.container = lcontainer;
+      this.nmClient = client;
       this.fileSplits =  fileSplits;
       this.results = results;
-    }
-
-    /**
-     * Helper function to connect to ContainerManager
-     */
-    private void connectToCM() {
-      LOG.debug("Connecting to ContainerManager for containerid=" + container.getId());
-      String cmIpPortStr = container.getNodeId().getHost() + ":"
-          + container.getNodeId().getPort();
-      InetSocketAddress cmAddress = NetUtils.createSocketAddr(cmIpPortStr);
-      LOG.info("Connecting to ContainerManager at " + cmIpPortStr);
-      this.cm = ((ContainerManager) rpc.getProxy(ContainerManager.class, cmAddress, conf));
     }
 
     /**
@@ -894,17 +923,14 @@ public class ApplicationMaster extends CompositeService {
      */
     @Override
     public Boolean call() {
-      connectToCM();
 
       LOG.info("Setting up container launch container for containerid=" + container.getId());
 
-      ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
-      ctx.setContainerId(container.getId());
-      ctx.setResource(container.getResource());
-
+      /*
       String jobUserName = System.getenv(ApplicationConstants.Environment.USER.name());
       ctx.setUser(jobUserName);
       LOG.info("Setting user in ContainerLaunchContext to: " + jobUserName);
+      */
 
       // Set the local resources for each container
       Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
@@ -938,23 +964,12 @@ public class ApplicationMaster extends CompositeService {
       appJarRsrc.setTimestamp(hdfsAppJarTimeStamp);
       appJarRsrc.setSize(hdfsAppJarLen);
       localResources.put("AppMaster.jar", appJarRsrc);
-      ctx.setLocalResources(localResources);
 
       // Set the env variables to be setup in the env where the container will be run
       LOG.info("Set the environment for the application master");
       Map<String, String> env = new HashMap<String, String>();
-      // Add AppMaster.jar location to classpath. At some point we should not be
-      // required to add the hadoop specific classpaths to the env. It should be
-      // provided out of the box. For now setting all required classpaths
-      // including the classpath to "." for the application jar
-      StringBuilder classPathEnv = new StringBuilder("${CLASSPATH}:./*");
-      for (String c : conf.getStrings(
-          YarnConfiguration.YARN_APPLICATION_CLASSPATH,
-          MPIConfiguration.DEFAULT_MPI_APPLICATION_CLASSPATH)) {
-        classPathEnv.append(':');
-        classPathEnv.append(c.trim());
-      }
-      env.put("CLASSPATH", classPathEnv.toString());
+
+      env.put("CLASSPATH", System.getenv("CLASSPATH"));
       env.put("MPIEXECDIR", mpiExecDir);
 
       env.put(MPIConstants.CONTAININPUT, Utilities.encodeSplit(fileSplits));
@@ -962,9 +977,8 @@ public class ApplicationMaster extends CompositeService {
       env.put(MPIConstants.CONTAINOUTPUT, Utilities.encodeMPIResult(results));
 
       env.put("CONTAINER_ID", String.valueOf(container.getId().getId()));
-      env.put("APPMASTER_HOST", System.getenv(ApplicationConstants.NM_HOST_ENV));
+      env.put("APPMASTER_HOST", System.getenv(NM_HOST_ENV));
       env.put("APPMASTER_PORT", String.valueOf(mpdListener.getServerPort()));
-      ctx.setEnvironment(env);
 
       containerToStatus.put(container.getId().toString(), MPDStatus.UNDEFINED);
       // Set the necessary command to execute on the allocated container
@@ -973,9 +987,11 @@ public class ApplicationMaster extends CompositeService {
       vargs.add("${JAVA_HOME}" + "/bin/java");
       vargs.add("-Xmx" + containerMemory + "m");
       // log are specified by the nodeManager's container-log4j.properties and nodemanager can specify the MPI_AM_LOG_LEVEL and MPI_AM_LOG_SIZE
+      /*
       String logLevel = conf.get(MPIConfiguration.MPI_CONTAINER_LOG_LEVEL, MPIConfiguration.DEFAULT_MPI_CONTAINER_LOG_LEVEL);
       long logSize = conf.getLong(MPIConfiguration.MPI_CONTAINER_LOG_SIZE, MPIConfiguration.DEFAULT_MPI_CONTAINER_LOG_SIZE);
       Utilities.addLog4jSystemProperties(logLevel, logSize, vargs);
+      */
       String javaOpts = conf.get(MPIConfiguration.MPI_CONTAINER_JAVA_OPTS_EXCEPT_MEMORY,"");
       if (!StringUtils.isBlank(javaOpts)) {
         vargs.add(javaOpts);
@@ -997,16 +1013,29 @@ public class ApplicationMaster extends CompositeService {
       }
       commands.add(containerCmd.toString());
       LOG.info("Executing command: " + commands.toString());
-      ctx.setCommands(commands);
 
+      ContainerLaunchContext ctx = ContainerLaunchContext.newInstance(
+          localResources, env, commands, null, null, null);
+      //ctx.setTokens(UserGroupInformation.getCurrentUser().getCredentials().getAllTokens().duplicate());
+
+
+      /*
       StartContainerRequest startReq = Records.newRecord(StartContainerRequest.class);
       startReq.setContainerLaunchContext(ctx);
+      List<StartContainerRequest> startReqList
+          = new ArrayList<StartContainerRequest>();
+      startReqList.add(startReq);
+      StartContainersRequest startReqs
+          = StartContainersRequest.newInstance(startReqList);
+      */
+
       try {
-        cm.startContainer(startReq);
-      } catch (YarnRemoteException e) {
+        nmClient.startContainer(container, ctx);
+      } catch (Exception e) {
         LOG.error("Start container failed for :"
             + ", containerId=" + container.getId(), e);
         // TODO do we need to release this container?
+        e.printStackTrace();
         return false;
       }
       return true;
@@ -1014,53 +1043,17 @@ public class ApplicationMaster extends CompositeService {
   }
 
   /**
-   * Connect to the Resource Manager
-   * @return Handle to communicate with the RM
-   */
-  private AMRMProtocol connectToRM() {
-    YarnConfiguration yarnConf = new YarnConfiguration(conf);
-    InetSocketAddress rmAddress = yarnConf.getSocketAddr(
-        YarnConfiguration.RM_SCHEDULER_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_SCHEDULER_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_SCHEDULER_PORT);
-    LOG.info("Connecting to ResourceManager at " + rmAddress);
-    return ((AMRMProtocol) rpc.getProxy(AMRMProtocol.class, rmAddress, conf));
-  }
-
-  /**
    * Register the Application Master to the Resource Manager
    * @return the registration response from the RM
-   * @throws YarnRemoteException
+   * @throws YarnException, IOException
    */
-  private RegisterApplicationMasterResponse registerToRM() throws YarnRemoteException {
-    RegisterApplicationMasterRequest appMasterRequest = Records.newRecord(RegisterApplicationMasterRequest.class);
-    // set the required info into the registration request:
-    // application attempt id,
-    // host on which the app master is running
-    // rpc port on which the app master accepts requests from the client
-    // tracking url for the app master
-    appMasterRequest.setApplicationAttemptId(appAttemptID);
-    appMasterRequest.setHost(clientService.getBindAddress().getHostName());
-    appMasterRequest.setRpcPort(clientService.getBindAddress().getPort());
-    appMasterRequest.setTrackingUrl(appMasterTrackingUrl);
-    return resourceManager.registerApplicationMaster(appMasterRequest);
-  }
+  private RegisterApplicationMasterResponse registerToRM()
+      throws YarnException, IOException {
 
-  /**
-   * Connect to the Resource Manager/Applications Manager
-   * @return Handle to communicate with the ASM
-   * @throws IOException
-   */
-  private ClientRMProtocol connectToASM() throws IOException {
-    YarnConfiguration yarnConf = new YarnConfiguration(conf);
-    InetSocketAddress rmAddress = yarnConf.getSocketAddr(
-        YarnConfiguration.RM_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_PORT);
-    LOG.info("Connecting to ResourceManager at " + rmAddress);
-    ClientRMProtocol applicationsManager = ((ClientRMProtocol) rpc.getProxy(
-        ClientRMProtocol.class, rmAddress, conf));
-    return applicationsManager;
+    return rmClient.registerApplicationMaster(
+        clientService.getBindAddress().getHostName(),
+        clientService.getBindAddress().getPort(),
+        appMasterTrackingUrl);
   }
 
   /**
@@ -1070,14 +1063,12 @@ public class ApplicationMaster extends CompositeService {
    * Keep looping until all the containers are launched and shell script executed on them
    * ( regardless of success/failure).
    * @return ContainerAllocation reference
-   * @throws YarnRemoteException
    */
-  private ContainersAllocator createContainersAllocator() throws YarnRemoteException {
-    // FIXME the first "new" operation is useless, we will use configuration here
-    ContainersAllocator allocator = new MultiMPIProcContainersAllocator(resourceManager,
-        requestPriority, containerMemory, appAttemptID);
-    allocator = new DistinctContainersAllocator(resourceManager, applicationsManager,
-        requestPriority, containerMemory, appAttemptID);
+  private ContainersAllocator createContainersAllocator() throws YarnException {
+    ContainersAllocator allocator = ContainersAllocator.newInstanceByName(
+        System.getenv(MPIConstants.ALLOCATOR), rmClient, requestPriority,
+        containerMemory, appAttemptID);
+
     return allocator;
   }
 

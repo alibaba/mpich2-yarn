@@ -15,8 +15,8 @@ import org.apache.hadoop.ipc.ProtocolSignature;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.yarn.YarnException;
-import org.apache.hadoop.yarn.service.AbstractService;
+import org.apache.hadoop.service.AbstractService;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.webapp.WebApp;
 import org.apache.hadoop.yarn.webapp.WebApps;
 
@@ -43,16 +43,23 @@ public class MPIClientService extends AbstractService implements MPIClientProtoc
   @Override
   public void start() {
     Configuration conf = getConfig();
+    LOG.info("Initializing MPIClientProtocol's RPC services");
+    RPC.Builder builder = new RPC.Builder(conf);
+    builder.setProtocol(MPIClientProtocol.class);
+    builder.setInstance(this);
+    builder.setBindAddress("0.0.0.0");
+    builder.setPort(0);
     try {
-      LOG.info("Initializing MPIClientProtocol's RPC services");
-      server = RPC.getServer(MPIClientProtocol.class, this, "0.0.0.0", 0, conf);
-      server.start();
-      bindAddress = NetUtils.getConnectAddress(server);
-      LOG.info("Starting MPIClientProtocol's RPC service at" + bindAddress);
-    } catch (IOException e1) {
-      LOG.error("Error starting MPIClientProtocal's RPC Service", e1);
-      throw new YarnException(e1);
+      server = builder.build();
+    } catch (Exception e) {
+      LOG.error("Error building RPC server.");
+      e.printStackTrace();
+      return;
     }
+    server.start();
+
+    bindAddress = NetUtils.getConnectAddress(server);
+    LOG.info("Starting MPIClientProtocol's RPC service at" + bindAddress);
 
     try {
       // TODO why this should be set to "mapreduce", any way to construct resources from

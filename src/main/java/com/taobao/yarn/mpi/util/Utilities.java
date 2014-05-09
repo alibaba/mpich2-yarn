@@ -25,24 +25,23 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.mapreduce.MRJobConfig;
-import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
-import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationReportRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationReportResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationRequest;
-import org.apache.hadoop.yarn.api.records.AMResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
-import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
@@ -50,6 +49,7 @@ import org.apache.hadoop.yarn.util.Records;
 
 import com.taobao.yarn.mpi.MPIConfiguration;
 import com.taobao.yarn.mpi.api.MPIClientProtocol;
+import com.taobao.yarn.mpi.server.ContainerId;
 
 public final class Utilities {
   private static Log LOG = LogFactory.getLog(Utilities.class);
@@ -75,33 +75,64 @@ public final class Utilities {
 
   /**
    * Setup the request that will be sent to the RM for the container ask.
-   * @param numContainers Containers to ask for from RM
-   * @return the setup ResourceRequest to be sent to RM
    */
-  public static ResourceRequest setupContainerAskForRM(
-      int numContainers,
-      int requestPriority,
-      int containerMemory) {
-    ResourceRequest request = Records.newRecord(ResourceRequest.class);
-    // setup requirements for hosts, whether a particular rack/host is needed
-    // Refer to apis under org.apache.hadoop.net for more details on how to get figure out
-    // rack/host mapping. using * as any host will do for the distributed shell app
-    request.setHostName("*");
-    // set number of containers needed
-    request.setNumContainers(numContainers);
+  public static ContainerRequest setupContainerAskForRM(
+      int requestPriority, int containerMemory) {
+    return setupContainerAskForRM(requestPriority, containerMemory, null);
+  }
 
-    // set the priority for the request
-    Priority pri = Records.newRecord(Priority.class);
-    // TODO - what is the range for priority? how to decide?
-    pri.setPriority(requestPriority);
-    request.setPriority(pri);
+  /**
+   * Setup the request that will be sent to the RM for the container ask.
+   */
+  public static ContainerRequest setupContainerAskForRM(
+      int requestPriority, int containerMemory, String node) {
 
     // Set up resource type requirements
     // For now, only memory is supported so we set memory requirements
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(containerMemory);
-    request.setCapability(capability);
 
+    String[] nodes = null;
+    if (node != null) {
+      nodes = new String[1];
+      nodes[0] = node;
+    }
+
+    // set the priority for the request
+    Priority pri = Records.newRecord(Priority.class);
+    // TODO - what is the range for priority? how to decide?
+    pri.setPriority(requestPriority);
+
+    ContainerRequest request = new ContainerRequest(
+        capability, nodes, null, pri);
+    return request;
+  }
+
+  /**
+   * Setup the request that will be sent to the RM for the container ask.
+   * @param numContainers Containers to ask for from RM
+   * @return the setup ResourceRequest to be sent to RM
+   */
+  public static ResourceRequest setupResourceAskForRM(
+      int numContainers,
+      int requestPriority,
+      int containerMemory) {
+
+    // set the priority for the request
+    Priority pri = Records.newRecord(Priority.class);
+    // TODO - what is the range for priority? how to decide?
+    pri.setPriority(requestPriority);
+
+    // Set up resource type requirements
+    // For now, only memory is supported so we set memory requirements
+    Resource capability = Records.newRecord(Resource.class);
+    capability.setMemory(containerMemory);
+
+    // setup requirements for hosts, whether a particular rack/host is needed
+    // Refer to apis under org.apache.hadoop.net for more details on how to get figure out
+    // rack/host mapping. using * as any host will do for the distributed shell app
+    ResourceRequest request = ResourceRequest.newInstance(
+        pri, "*", capability, numContainers);
     return request;
   }
 
@@ -109,21 +140,18 @@ public final class Utilities {
    * Ask RM to allocate given no. of containers to this Application Master
    * @param requestedContainers Containers to ask for from RM
    * @return Response from RM to AM with allocated containers
-   * @throws YarnRemoteException
+   * @throws YarnException, IOException
    */
-  public static AMResponse sendContainerAskToRM(
+  public static AllocateResponse sendResourceAskToRM(
       AtomicInteger rmRequestID,
       ApplicationAttemptId appAttemptID,
-      AMRMProtocol resourceManager,
+      ApplicationMasterProtocol resourceManager,
       List<ResourceRequest> requestedContainers,
-      List<ContainerId> releasedContainers,
-      float progress) throws YarnRemoteException {
-    AllocateRequest req = Records.newRecord(AllocateRequest.class);
-    req.setResponseId(rmRequestID.incrementAndGet());
-    req.setApplicationAttemptId(appAttemptID);
-    req.addAllAsks(requestedContainers);
-    req.addAllReleases(releasedContainers);
-    req.setProgress(progress);
+      List<org.apache.hadoop.yarn.api.records.ContainerId> releasedContainers,
+      float progress) throws YarnException, IOException {
+    AllocateRequest req = AllocateRequest.newInstance(
+        rmRequestID.incrementAndGet(), progress,
+        requestedContainers, releasedContainers, null);
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("Sending request to RM for containers"
@@ -135,12 +163,13 @@ public final class Utilities {
     for (ResourceRequest  rsrcReq : requestedContainers) {
       LOG.info("Requested container ask: " + rsrcReq.toString());
     }
-    for (ContainerId id : releasedContainers) {
+    for (org.apache.hadoop.yarn.api.records.ContainerId id :
+         releasedContainers) {
       LOG.info("Released container, id=" + id.getId());
     }
 
     AllocateResponse resp = resourceManager.allocate(req);
-    return resp.getAMResponse();
+    return resp;
   }
 
   /**
@@ -352,11 +381,15 @@ public final class Utilities {
    * @param containerId
    * @return
    */
-  public static String getDownLoadDir(Configuration conf, String appAttemptID, int containerId ){
+  public static String getDownLoadDir(
+      Configuration conf, String appAttemptID, ContainerId containerId ){
     StringBuilder post = new StringBuilder(100);
     post.append("/mpidownload/").append(containerId).append("/");
     StringBuilder dir = new StringBuilder(100);
-    dir.append(conf.get("mpi.local.dir", conf.get("hadoop.tmp.dir" , "/tmp") + "/mpidata")).append("/").append(appAttemptID);
+
+    String mpiTmpDir = conf.get("hadoop.tmp.dir" , "/tmp");
+    String mpiLocalDir = conf.get("mpi.local.dir", mpiTmpDir + "/mpidata");
+    dir.append(mpiLocalDir).append("/").append(appAttemptID);
     return dir.toString() + post.toString();
 
   }
@@ -371,10 +404,10 @@ public final class Utilities {
    * Kill a submitted application by sending a call to the ASM
    * @param applicationsManager Client<->RM
    * @param appId Application Id to be killed.
-   * @throws YarnRemoteException
+   * @throws YarnException, IOException
    */
-  public static void killApplication(ClientRMProtocol applicationsManager, ApplicationId appId)
-      throws YarnRemoteException {
+  public static void killApplication(ApplicationClientProtocol applicationsManager, ApplicationId appId)
+      throws YarnException, IOException {
     KillApplicationRequest request = Records.newRecord(KillApplicationRequest.class);
     // TODO clarify whether multiple jobs with the same app id can be submitted
     // and be running at the same time. If yes, can we kill a particular attempt only?
@@ -389,15 +422,15 @@ public final class Utilities {
    * @return Handle to communicate with the ASM
    * @throws IOException
    */
-  public static ClientRMProtocol connectToASM(YarnConfiguration conf) throws IOException {
+  public static ApplicationClientProtocol connectToASM(YarnConfiguration conf) throws IOException {
     YarnRPC rpc = YarnRPC.create(conf);
     InetSocketAddress rmAddress = conf.getSocketAddr(
         YarnConfiguration.RM_ADDRESS,
         YarnConfiguration.DEFAULT_RM_ADDRESS,
         YarnConfiguration.DEFAULT_RM_PORT);
     LOG.info("Connecting to ResourceManager at " + rmAddress);
-    ClientRMProtocol applicationsManager = ((ClientRMProtocol) rpc.getProxy(
-        ClientRMProtocol.class, rmAddress, conf));
+    ApplicationClientProtocol applicationsManager = ((ApplicationClientProtocol) rpc.getProxy(
+        ApplicationClientProtocol.class, rmAddress, conf));
     return applicationsManager;
   }
 
@@ -421,10 +454,10 @@ public final class Utilities {
    * @param appId
    * @param applicationsManager
    * @return
-   * @throws YarnRemoteException
+   * @throws YarnException, IOException
    */
-  public static ApplicationReport getApplicationReport(ApplicationId appId, ClientRMProtocol applicationsManager)
-      throws YarnRemoteException {
+  public static ApplicationReport getApplicationReport(ApplicationId appId, ApplicationClientProtocol applicationsManager)
+      throws YarnException, IOException {
     RecordFactory recordFactory = RecordFactoryProvider.getRecordFactory(null);
     GetApplicationReportRequest request = recordFactory.newRecordInstance(GetApplicationReportRequest.class);
     request.setApplicationId(appId);
@@ -451,11 +484,11 @@ public final class Utilities {
   public static void addLog4jSystemProperties(
       String logLevel, long logSize,Vector<CharSequence> vargs) {
     //We will be confused with the values of MRJobConfig.TASK_LOG_DIR and MRJobConfig.TASK_LOG_SIZE, see container-log4j.properties
+    //vargs.add("-Dlog4j.configuration=/home/fredfsh/fun/ChinaMobile/src/hadoop-common/hadoop-dist/target/hadoop-2.4.0/etc/hadoop/container-log4j.properties");
     vargs.add("-Dlog4j.configuration=container-log4j.properties");
-    vargs.add("-D" + MRJobConfig.TASK_LOG_DIR + "=" +
-        ApplicationConstants.LOG_DIR_EXPANSION_VAR);
-    vargs.add("-D" + MRJobConfig.TASK_LOG_SIZE + "=" + logSize);
-    vargs.add("-Dhadoop.root.logger=" + logLevel + ",CLA");
+    //vargs.add("-D" + MRJobConfig.TASK_LOG_DIR + "=" +
+    //    ApplicationConstants.LOG_DIR_EXPANSION_VAR);
+    //vargs.add("-D" + MRJobConfig.TASK_LOG_SIZE + "=" + logSize);
   }
 
 }
