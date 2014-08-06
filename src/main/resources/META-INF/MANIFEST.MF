@@ -1,4 +1,4 @@
 Manifest-Version: 1.0
 Created-By: boqian.zwq
-Built-By: alibaba
-Main-Class: com.taobao.yarn.mpi.client.Client
+Built-By: Apache
+Main-Class: org.apache.hadoop.yarn.mpi.client.Client
