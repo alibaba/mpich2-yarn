@@ -21,6 +21,7 @@ int initialLen;
   if (tempPtr) {
     tempPtr->list = (char **) malloc(sizeof(char *) * initialLen);
     if (!tempPtr->list) {
+      free(tempPtr);
       return 0;
     }
     tempPtr->nused = 0;
@@ -78,6 +79,7 @@ int initialLen;
   if (tempPtr) {
     tempPtr->list = (char *) malloc(sizeof(char) * initialLen);
     if (!tempPtr->list) {
+      free(tempPtr);
       return 0;
     }
     tempPtr->nused = 0;
@@ -135,6 +137,7 @@ int initialLen;
   if (tempPtr) {
     tempPtr->list = (int *) malloc(sizeof(int) * initialLen);
     if (!tempPtr->list) {
+      free(tempPtr);
       return 0;
     }
     tempPtr->nused = 0;
