@@ -18,6 +18,10 @@ import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
 
+/**
+ * It seems that this file has been deprecated
+ *
+ */
 public final class Utilities {
   private static Log LOG = LogFactory.getLog(Utilities.class);
 
@@ -120,4 +124,6 @@ public final class Utilities {
     }
     return sb.toString();
   }
+
+
 }

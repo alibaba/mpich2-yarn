@@ -1,7 +1,6 @@
 package org.apache.hadoop.yarn.mpi.server;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -34,16 +33,11 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.service.CompositeService;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.FinishApplicationMasterRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.StartContainersRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -54,20 +48,15 @@ import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.NMClient;
-import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.mpi.MPIConfiguration;
 import org.apache.hadoop.yarn.mpi.MPIConstants;
 import org.apache.hadoop.yarn.mpi.allocator.ContainersAllocator;
-import org.apache.hadoop.yarn.mpi.allocator.DistinctContainersAllocator;
-import org.apache.hadoop.yarn.mpi.allocator.MultiMPIProcContainersAllocator;
 import org.apache.hadoop.yarn.mpi.util.FileSplit;
 import org.apache.hadoop.yarn.mpi.util.InputFile;
-import org.apache.hadoop.yarn.mpi.util.MPDException;
 import org.apache.hadoop.yarn.mpi.util.MPIResult;
 import org.apache.hadoop.yarn.mpi.util.Utilities;
 import org.apache.hadoop.yarn.util.ConverterUtils;
@@ -217,6 +206,7 @@ public class ApplicationMaster extends CompositeService {
     super(ApplicationMaster.class.getName());
     // Set up the configuration and RPC
     conf = new MPIConfiguration();
+    Utilities.printRelevantParams("AM new conf", conf);
     rpc = YarnRPC.create(conf);
     dfs = FileSystem.get(conf);
   }
@@ -515,6 +505,9 @@ public class ApplicationMaster extends CompositeService {
    */
   public boolean run() throws IOException {
     LOG.info("Starting ApplicationMaster");
+
+    Utilities.printRelevantParams("Application Master", conf);
+
     // Connect to ResourceManager
 
     // TODO Setup local RPC Server to accept status requests directly from clients
@@ -616,6 +609,7 @@ public class ApplicationMaster extends CompositeService {
         while (!mpdListener.isAllMPDStarted()) {
           Utilities.sleep(PULL_INTERVAL);
         }
+
         launchMpiExec();
         int loopCounter = -1;
         while (numCompletedContainers.get() < numTotalContainers
@@ -625,8 +619,8 @@ public class ApplicationMaster extends CompositeService {
           //check whether all the smpd process is healthy
           boolean allHealthy = mpdListener.isAllHealthy();
           if (allHealthy) {
-            LOG.debug("Sending empty request to RM, to let RM know we are " + 
-                      "alive");
+            LOG.debug("Sending empty request to RM, to let RM know we are " +
+                "alive");
             AllocateResponse amResp = rmClient.allocate(
                 (float) numCompletedContainers.get() / numTotalContainers);
 
@@ -717,7 +711,7 @@ public class ApplicationMaster extends CompositeService {
 
 
     unregisterApp(isSuccess ? FinalApplicationStatus.SUCCEEDED
-                            : FinalApplicationStatus.FAILED, diagnostics);
+        : FinalApplicationStatus.FAILED, diagnostics);
 
     return isSuccess;
   }
@@ -745,7 +739,7 @@ public class ApplicationMaster extends CompositeService {
    */
   private void unregisterApp(FinalApplicationStatus status,
       String diagnostics) {
-    try { 
+    try {
       rmClient.unregisterApplicationMaster(status, diagnostics,
           appMasterTrackingUrl );
     } catch (Exception e) {
@@ -928,7 +922,7 @@ public class ApplicationMaster extends CompositeService {
       String jobUserName = System.getenv(ApplicationConstants.Environment.USER.name());
       ctx.setUser(jobUserName);
       LOG.info("Setting user in ContainerLaunchContext to: " + jobUserName);
-      */
+       */
 
       // Set the local resources for each container
       Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
@@ -978,6 +972,8 @@ public class ApplicationMaster extends CompositeService {
       env.put("APPMASTER_HOST", System.getenv(NM_HOST_ENV));
       env.put("APPMASTER_PORT", String.valueOf(mpdListener.getServerPort()));
 
+      env.put("PATH", System.getenv("PATH"));
+
       containerToStatus.put(container.getId().toString(), MPDStatus.UNDEFINED);
       // Set the necessary command to execute on the allocated container
       LOG.info("Setting up container command");
@@ -989,7 +985,7 @@ public class ApplicationMaster extends CompositeService {
       String logLevel = conf.get(MPIConfiguration.MPI_CONTAINER_LOG_LEVEL, MPIConfiguration.DEFAULT_MPI_CONTAINER_LOG_LEVEL);
       long logSize = conf.getLong(MPIConfiguration.MPI_CONTAINER_LOG_SIZE, MPIConfiguration.DEFAULT_MPI_CONTAINER_LOG_SIZE);
       Utilities.addLog4jSystemProperties(logLevel, logSize, vargs);
-      */
+       */
       String javaOpts = conf.get(MPIConfiguration.MPI_CONTAINER_JAVA_OPTS_EXCEPT_MEMORY,"");
       if (!StringUtils.isBlank(javaOpts)) {
         vargs.add(javaOpts);
@@ -1025,7 +1021,7 @@ public class ApplicationMaster extends CompositeService {
       startReqList.add(startReq);
       StartContainersRequest startReqs
           = StartContainersRequest.newInstance(startReqList);
-      */
+       */
 
       try {
         nmClient.startContainer(container, ctx);

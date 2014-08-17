@@ -33,8 +33,8 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
+import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationRequest;
@@ -155,6 +155,7 @@ public class Client {
     // Set up the configuration and RPC
     this.conf = conf;
     dfs = FileSystem.get(conf);
+    Utilities.printRelevantParams("Client new conf", conf);
   }
 
   /**
@@ -368,6 +369,8 @@ public class Client {
    */
   public boolean run() throws IOException, YarnException {
     LOG.info("Starting Client");
+    Utilities.printRelevantParams("Client", conf);
+
     // Connect to ResourceManager
     applicationsManager = Utilities.connectToASM(conf);
 
@@ -482,9 +485,13 @@ public class Client {
       }
       env.put(MPIConstants.MPIINPUTS, names.substring(0, names.length()-1).toString());
     }
-    env.put(MPIConstants.ALLOCATOR, conf.get(
-          MPIConfiguration.MPI_CONTAINER_ALLOCATOR,
-          MPIConfiguration.DEFAULT_MPI_CONTAINER_ALLOCATOR));
+    //    env.put(MPIConstants.ALLOCATOR, conf.get(
+    //        MPIConfiguration.MPI_CONTAINER_ALLOCATOR,
+    //        MPIConfiguration.DEFAULT_MPI_CONTAINER_ALLOCATOR));
+
+
+    // TODO
+    env.put(MPIConstants.ALLOCATOR, MPIConfiguration.DEFAULT_MPI_CONTAINER_ALLOCATOR);
 
     Set<String> keyResults = resultToLocation.keySet();
     StringBuilder resultNames = new StringBuilder(50);
@@ -509,11 +516,18 @@ public class Client {
       classPathEnv.append(':');
       classPathEnv.append(c.trim());
     }
+
+
+
     // add the runtime classpath needed for tests to work
     String testRuntimeClassPath = Client.getTestRuntimeClasspath();
     classPathEnv.append(':');
     classPathEnv.append(testRuntimeClassPath);
     env.put("CLASSPATH", classPathEnv.toString());
+
+    //TODO Add the system path into the environment, this is important, otherwise we cannot find mpiexec or smpd
+    env.put("PATH", System.getenv("PATH"));
+
 
     // Set the necessary command to execute the application master
     Vector<CharSequence> vargs = new Vector<CharSequence>(30);

@@ -11,22 +11,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
-import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.NodeReport;
-import org.apache.hadoop.yarn.api.records.Priority;
-import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.mpi.util.Utilities;
-import org.apache.hadoop.yarn.util.Records;
 
 
 /**
@@ -60,7 +51,7 @@ public class DistinctContainersAllocator extends ContainersAllocator {
    */
   public DistinctContainersAllocator(AMRMClient rmClient, int requestPriority,
       int containerMemory, ApplicationAttemptId appAttemptId)
-      throws YarnException {
+          throws YarnException {
     super(rmClient);
 
     this.requestPriority = requestPriority;
@@ -123,6 +114,7 @@ public class DistinctContainersAllocator extends ContainersAllocator {
     }  // end while
 
     // The "Distinct" of the class name means each host has only one process
+    // TODO This is limited and waste of resource, so MultiMPIProcContainerAllocator solved this problem
     for (Container container : result) {
       hostToProcNum.put(container.getNodeId().getHost(), new Integer(1));
     }
