@@ -110,7 +110,7 @@ public class ApplicationMaster extends CompositeService {
   // MPI program options
   private String mpiOptions = "";
   private Map<String, Integer> hostToProcNum;
-  private List<Container> allContainers;
+  private List<Container> distinctContainers;
   private String phrase = "";
   private int port = 5000;
   // A queue that keep track of the mpi messages
@@ -585,22 +585,24 @@ public class ApplicationMaster extends CompositeService {
 
     LOG.info("Try to allocate " + numTotalContainers + " containers.");
 
+    int allocateInterval = conf.getInt(MPIConfiguration.MPI_ALLOCATE_INTERVAL,
+        1000);
+    rmClientAsync.setHeartbeatInterval(allocateInterval);
+
     while (rmAsyncHandler.getAllocatedContainerNumber() < numTotalContainers) {
-      int allocateInterval = conf.getInt(
-          MPIConfiguration.MPI_ALLOCATE_INTERVAL, 1000);
       Utilities.sleep(allocateInterval);
     }
 
     LOG.info(numTotalContainers + " containers allocated.");
 
     hostToProcNum = rmAsyncHandler.getHostToProcNum();
-    allContainers = rmAsyncHandler.getDistinctContainers();
+    distinctContainers = rmAsyncHandler.getDistinctContainers();
 
     // key(Integer) represent the containerID;value(List<FileSplit>) represent
     // the files which need to be downloaded
     ConcurrentHashMap<Integer, List<FileSplit>> splits = getFileSplit(
-        fileDownloads, fileToLocation, allContainers);
-    for (Container allocatedContainer : allContainers) {
+        fileDownloads, fileToLocation, distinctContainers);
+    for (Container allocatedContainer : distinctContainers) {
       String host = allocatedContainer.getNodeId().getHost();
       containerHosts.add(host);
       LOG.info("Launching command on a new container" + ", containerId="
@@ -769,11 +771,16 @@ public class ApplicationMaster extends CompositeService {
    */
   private void unregisterApp(FinalApplicationStatus status, String diagnostics) {
     try {
+      LOG.info("Stop all containers");
+      for (Container container : rmAsyncHandler.getAcquiredContainers()) {
+        nmClientAsync.stopContainerAsync(container.getId(),
+            container.getNodeId());
+      }
       LOG.info("Unregister AM, and wait for services to stop.");
       rmClientAsync.unregisterApplicationMaster(status, diagnostics,
           appMasterTrackingUrl);
-      rmClientAsync.waitForServiceToStop(0);
-      nmClientAsync.waitForServiceToStop(0);
+      rmClientAsync.stop();
+      nmClientAsync.stop();
       LOG.info("AMRM, NM two services stopped");
     } catch (Exception e) {
       LOG.error("Error unregistering AM.");
@@ -1050,7 +1057,7 @@ public class ApplicationMaster extends CompositeService {
 
     @Override
     public List<Container> getAllContainers() {
-      return allContainers;
+      return distinctContainers;
     }
 
     @Override

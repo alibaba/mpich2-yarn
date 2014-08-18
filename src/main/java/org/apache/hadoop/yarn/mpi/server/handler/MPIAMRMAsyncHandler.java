@@ -5,16 +5,13 @@ package org.apache.hadoop.yarn.mpi.server.handler;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync.CallbackHandler;
@@ -28,11 +25,20 @@ public class MPIAMRMAsyncHandler implements CallbackHandler {
   private final Map<String, Integer> hostToProcNum = new HashMap<String, Integer>();
   private final Map<String, Container> hostToContainer = new HashMap<String, Container>();
   private final List<Container> distinctContainers = new ArrayList<Container>();
-  public final Set<ContainerId> acquiredContainers = new HashSet<ContainerId>();
+  public final List<Container> acquiredContainers = new ArrayList<Container>();
   private final AtomicInteger acquiredContainersCount = new AtomicInteger(0);
+  private final AtomicInteger neededContainersCount = new AtomicInteger();
 
   public int getAllocatedContainerNumber() {
     return acquiredContainersCount.get();
+  }
+
+  /**
+   * @param count
+   *          how many containers do we need?
+   */
+  public void setNeededContainersCount(int count) {
+    neededContainersCount.set(count);
   }
 
   public Map<String, Integer> getHostToProcNum() {
@@ -41,6 +47,10 @@ public class MPIAMRMAsyncHandler implements CallbackHandler {
 
   public List<Container> getDistinctContainers() {
     return new ArrayList<Container>(distinctContainers);
+  }
+
+  public List<Container> getAcquiredContainers(){
+    return new ArrayList<Container>(acquiredContainers);
   }
 
   /*
@@ -70,7 +80,7 @@ public class MPIAMRMAsyncHandler implements CallbackHandler {
       LOG.info("AcquiredContainer: Id=" + acquiredContainer.getId()
           + ", NodeId=" + acquiredContainer.getNodeId() + ", Host="
           + acquiredContainer.getNodeId().getHost());
-      acquiredContainers.add(acquiredContainer.getId());
+      acquiredContainers.add(acquiredContainer);
       String host = acquiredContainer.getNodeId().getHost();
       if (!hostToContainer.containsKey(host)) {
         hostToContainer.put(host, acquiredContainer);
@@ -123,8 +133,13 @@ public class MPIAMRMAsyncHandler implements CallbackHandler {
    */
   @Override
   public float getProgress() {
-    // TODO Auto-generated method stub
-    return 0;
+    float neededTotal = neededContainersCount.get();
+    float acquiredTotal = acquiredContainersCount.get();
+    if(neededTotal==0){
+      return 0.0f;
+    }else{
+      return acquiredTotal/neededTotal;
+    }
   }
 
   /*
