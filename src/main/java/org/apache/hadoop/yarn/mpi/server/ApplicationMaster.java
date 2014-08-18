@@ -10,7 +10,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.Vector;
@@ -49,12 +48,17 @@ import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.client.api.NMClient;
+import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
+import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.mpi.MPIConfiguration;
 import org.apache.hadoop.yarn.mpi.MPIConstants;
 import org.apache.hadoop.yarn.mpi.allocator.ContainersAllocator;
+import org.apache.hadoop.yarn.mpi.server.handler.MPIAMRMAsyncHandler;
+import org.apache.hadoop.yarn.mpi.server.handler.MPINMAsyncHandler;
 import org.apache.hadoop.yarn.mpi.util.FileSplit;
 import org.apache.hadoop.yarn.mpi.util.InputFile;
 import org.apache.hadoop.yarn.mpi.util.MPIResult;
@@ -70,9 +74,9 @@ public class ApplicationMaster extends CompositeService {
   // YARN RPC to communicate with the Resource Manager or Node Manager
   private final YarnRPC rpc;
   // Handle to talk to the ResourceManager
-  private AMRMClient rmClient = null;
+  private AMRMClientAsync<ContainerRequest> rmClientAsync = null;
   // Handle to talk to the NodeManager
-  private NMClient nmClient = null;
+  private NMClientAsync nmClientAsync = null;
   // Application Attempt Id ( combination of attemptId and fail count )
   private ApplicationAttemptId appAttemptID;
   // Host name of the container, for status update of clients
@@ -147,6 +151,8 @@ public class ApplicationMaster extends CompositeService {
   // Running App Context for passing to the web interface
   private final AppContext appContext = new RunningAppContext();
   private final FileSystem dfs;
+  private MPIAMRMAsyncHandler rmAsyncHandler;
+  private MPINMAsyncHandler nmAsyncHandler;
 
   /**
    * @param args Command line args
@@ -473,15 +479,18 @@ public class ApplicationMaster extends CompositeService {
     // rpc port on which the app master accepts requests from the client
     // tracking url for the app master
     LOG.info("Creating AM<->RM Protocol...");
-    rmClient = AMRMClient.createAMRMClient();
-    rmClient.init(conf);
-    rmClient.start();
+    //AMRMClient.createAMRMClient();
+    rmAsyncHandler = new MPIAMRMAsyncHandler();
+    rmClientAsync = AMRMClientAsync.createAMRMClientAsync(1000, rmAsyncHandler);
+    rmClientAsync.init(conf);
+    rmClientAsync.start();
 
     // also init NMClient here
     LOG.info("Creating AM<->NM Protocol...");
-    nmClient = NMClient.createNMClient();
-    nmClient.init(conf);
-    nmClient.start();
+    nmAsyncHandler = new MPINMAsyncHandler();
+    nmClientAsync = NMClientAsync.createNMClientAsync(nmAsyncHandler);
+    nmClientAsync.init(conf);
+    nmClientAsync.start();
 
     LOG.info("Initializing MPDProtocal's RPC services...");
     mpdListener = new MPDListenerImpl();
@@ -740,8 +749,9 @@ public class ApplicationMaster extends CompositeService {
   private void unregisterApp(FinalApplicationStatus status,
       String diagnostics) {
     try {
-      rmClient.unregisterApplicationMaster(status, diagnostics,
+      rmClientAsync.unregisterApplicationMaster(status, diagnostics,
           appMasterTrackingUrl );
+      rmClientAsync.stop();
     } catch (Exception e) {
       LOG.error("Error unregistering AM.");
       e.printStackTrace();
@@ -755,18 +765,17 @@ public class ApplicationMaster extends CompositeService {
   private void launchMpiExec() throws IOException {
     LOG.info("Launching mpiexec from the Application Master...");
 
-    StringBuilder commandBuilder = new StringBuilder("mpiexec -phrase ");
-    commandBuilder.append(phrase);
-    commandBuilder.append(" -port ");
-    commandBuilder.append(port);
-
-    commandBuilder.append(" -hosts ");
+    StringBuilder commandBuilder = new StringBuilder("mpiexec -launcher ssh -hosts ");
     Set<String> hosts = hostToProcNum.keySet();
-    commandBuilder.append(hosts.size());
+    boolean first=true;
     for (String host : hosts) {
-      commandBuilder.append(" ");
+      if(first){
+        first=false;
+      }else{
+        commandBuilder.append(",");
+      }
       commandBuilder.append(host);
-      commandBuilder.append(" ");
+      commandBuilder.append(":");
       commandBuilder.append(hostToProcNum.get(host));
     }
 
@@ -794,10 +803,9 @@ public class ApplicationMaster extends CompositeService {
       commandBuilder.append(mpiOptions);
     }
     LOG.info("Executing command:" + commandBuilder.toString());
+    Utilities.printRelevantParams("Before Launching", conf);
     Runtime rt = Runtime.getRuntime();
-
-    String[] envStrs = generateEnvStrs();
-    final Process pc = rt.exec(commandBuilder.toString(), envStrs);
+    final Process pc = rt.exec(commandBuilder.toString());
 
     Thread stdinThread = new Thread(new Runnable() {
       @Override
@@ -834,23 +842,7 @@ public class ApplicationMaster extends CompositeService {
           LOG.info("Shutting down daemons...");
           Runtime rt = Runtime.getRuntime();
           for (String host : containerHosts) {
-            try {
-              String command = "smpd -shutdown " + host + " -phrase " + phrase + " -port " + port + " -yarn";
-              LOG.info("Executing the command: " + command);
-              Process process = rt.exec(command);
-              Scanner scanner = new Scanner(process.getInputStream());
-              while (scanner.hasNextLine()) {
-                LOG.info(scanner.nextLine());
-              }
 
-              scanner = new Scanner(process.getErrorStream());
-              while (scanner.hasNextLine()) {
-                LOG.info(scanner.nextLine());
-              }
-            } catch (IOException e) {
-              LOG.warn(e.getMessage());
-              e.printStackTrace();
-            }
           }
           LOG.info("All daemons shut down! :-D");
         } catch (InterruptedException e) {
@@ -859,23 +851,6 @@ public class ApplicationMaster extends CompositeService {
       }
     });
     shutdownThread.start();
-  }
-
-  private String[] generateEnvStrs() {
-    String userHomeDir = conf.get(MPIConfiguration.MPI_NM_STARTUP_USERDIR,
-        "/home" + "/" + System.getenv("USER"));
-    Map<String, String> envs = System.getenv();
-    String[] envStrs = new String[envs.size()];
-    int i = 0;
-    for (Entry<String, String> env : envs.entrySet()) {
-      if (env.getKey().equals("HOME")) {
-        envStrs[i] = env.getKey() + "=" + userHomeDir;
-      } else {
-        envStrs[i] = env.getKey() + "=" + env.getValue();
-      }
-      i++;
-    }
-    return envStrs;
   }
 
   /**
@@ -1043,8 +1018,7 @@ public class ApplicationMaster extends CompositeService {
    */
   private RegisterApplicationMasterResponse registerToRM()
       throws YarnException, IOException {
-
-    return rmClient.registerApplicationMaster(
+    return rmClientAsync.registerApplicationMaster(
         clientService.getBindAddress().getHostName(),
         clientService.getBindAddress().getPort(),
         appMasterTrackingUrl);
@@ -1060,7 +1034,7 @@ public class ApplicationMaster extends CompositeService {
    */
   private ContainersAllocator createContainersAllocator() throws YarnException {
     ContainersAllocator allocator = ContainersAllocator.newInstanceByName(
-        System.getenv(MPIConstants.ALLOCATOR), rmClient, requestPriority,
+        System.getenv(MPIConstants.ALLOCATOR), rmAsyncHandler, requestPriority,
         containerMemory, appAttemptID);
 
     return allocator;

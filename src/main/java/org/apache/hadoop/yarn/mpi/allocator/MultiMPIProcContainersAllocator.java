@@ -12,8 +12,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.client.api.AMRMClient;
-import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
+import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.mpi.MPIConfiguration;
 import org.apache.hadoop.yarn.mpi.util.Utilities;
@@ -40,12 +39,10 @@ public class MultiMPIProcContainersAllocator extends ContainersAllocator {
 
   private final MPIConfiguration conf;
 
-  public MultiMPIProcContainersAllocator(AMRMClient rmClient,
+  public MultiMPIProcContainersAllocator(AMRMClientAsync.CallbackHandler rmAsyncHandler,
       Integer reuqestPriority, Integer containerMemory,
       ApplicationAttemptId appAttemptId) {
-    super(rmClient);
-
-    this.rmClient = rmClient;
+    super(rmAsyncHandler);
     this.requestPriority = reuqestPriority;
     this.containerMemory = containerMemory;
     this.appAttemptID = appAttemptId;
@@ -56,21 +53,6 @@ public class MultiMPIProcContainersAllocator extends ContainersAllocator {
   public synchronized List<Container> allocateContainers(int numContainer)
       throws YarnException {
     List<Container> acquiredContainers = new ArrayList<Container>();
-
-    // Until we get our fully allocated quota, we keep on polling RM for
-    // containers
-    // Keep looping until all the containers are launched and shell script
-    // executed on them
-    // ( regardless of success/failure).
-
-    // Setup request for RM
-    LOG.info(String.format("Asking RM for %d containers", numContainer));
-
-    for (int i = 1; i <= numContainer; ++i) {
-      ContainerRequest containerAsk = Utilities.setupContainerAskForRM(
-          requestPriority, containerMemory);
-      rmClient.addContainerRequest(containerAsk);
-    }
 
     // It's incorrect to add remaining request to the AMRMClient each loop,
     // because it seems that AMRMClient has guarantee that it will retrieve

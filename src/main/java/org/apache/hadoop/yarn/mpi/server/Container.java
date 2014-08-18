@@ -9,7 +9,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Scanner;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -17,8 +16,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
@@ -43,11 +40,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 public class Container {
 
   private static final Log LOG = LogFactory.getLog(Container.class);
-
-  // The port of SMPD process
-  private String smpdPort;
-  private String phrase;
-
   private TaskReporter taskReporter;
 
   private final ExecutorService executorDownload;
@@ -78,20 +70,6 @@ public class Container {
 
   public boolean init(String[] args) throws ParseException, IOException {
     Options options = new Options();
-    options.addOption("p", "port", true, "The port of the SMPD daemon process");
-    options.addOption("f", "phrase", true,
-        "The pass phrase of the SMPD daemon process");
-
-    CommandLine cliParser = new GnuParser().parse(options, args);
-    if (!cliParser.hasOption("port")) {
-      throw new ParseException("Port is not defined");
-    }
-    smpdPort = cliParser.getOptionValue("port");
-
-    if (!cliParser.hasOption("phrase")) {
-      throw new ParseException("Phrase is not defined");
-    }
-    phrase = cliParser.getOptionValue("phrase");
 
     containerId = new ContainerId(ConverterUtils.toContainerId(System
         .getenv(ApplicationConstants.Environment.CONTAINER_ID.toString())));
@@ -102,7 +80,6 @@ public class Container {
 
     appMasterHost = System.getenv("APPMASTER_HOST");
     appMasterPort = Integer.valueOf(System.getenv("APPMASTER_PORT"));
-    // conf = new Configuration();
     InetSocketAddress addr = new InetSocketAddress(appMasterHost, appMasterPort);
     protocol = RPC.getProxy(MPDProtocol.class, MPDProtocol.versionID, addr,
         conf);
@@ -249,61 +226,15 @@ public class Container {
   }
 
   public Boolean run() throws IOException {
-    Runtime rt = Runtime.getRuntime();
-    // Hacked the smpd_cmd_args.c, to add an option set bService
-    String cmdLine = "smpd -phrase " + phrase + " -port " + smpdPort + " -yarn";
-    LOG.info("Launching SMPD Command: " + cmdLine);
-    final Process pc = rt.exec(cmdLine);
-    // If we get the reference of the process, we get the running daemon.
-    if (pc != null) {
-      protocol.reportStatus(containerId, MPDStatus.MPD_STARTED);
-    } else {
-      LOG.error("error occurs while creating the smpd process");
-    }
+    // TODO Is there any outputs of daemons such as ssh?
 
-    Thread stdOutThread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        Scanner stdOut = new Scanner(pc.getInputStream());
-        while (stdOut.hasNextLine()) {
-          LOG.info(stdOut.nextLine());
-        }
-      }
-    });
-    stdOutThread.start();
+    protocol.reportStatus(containerId, MPDStatus.MPD_STARTED);
 
-    Thread stdErrThread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        Scanner stdErr = new Scanner(pc.getErrorStream());
-        while (stdErr.hasNextLine()) {
-          String err = stdErr.nextLine();
-          System.err.println(String.format("Continer %s error:%s",
-              containerId.toString(), err));
-        }
-      }
-    });
-    stdErrThread.start();
     Boolean runSuccess = true;
-    try {
-      LOG.info("Start to wait for smpd to terminate.");
-      int ret = pc.waitFor();
-      LOG.info("Smpd terminated");
-      if (ret != 0) {
-        runSuccess = false;
-        LOG.error(String.format(
-            "Container %s, smpd crash, smpd returned value: %d",
-            containerId.toString(), ret));
-        protocol.reportStatus(containerId, MPDStatus.MPD_CRASH);
-      } else {
-        runSuccess = true;
-        protocol.reportStatus(containerId, MPDStatus.FINISHED);
-        LOG.info(String.format("Container %s, smpd finish successfully",
-            containerId.toString()));
-      }
-    } catch (InterruptedException e) {
-      LOG.error("Process Interrupted.", e);
-    }
+    protocol.reportStatus(containerId, MPDStatus.FINISHED);
+    LOG.info(String.format("Container %s, smpd finish successfully",
+        containerId.toString()));
+
     return runSuccess;
   }
 
@@ -406,7 +337,9 @@ public class Container {
   }
 
   public Boolean getDownloadSave() {
-    return downloadSave;
+    // TODO
+    // return downloadSave;
+    return true;
   }
 
   public MPDProtocol getProtocol() {

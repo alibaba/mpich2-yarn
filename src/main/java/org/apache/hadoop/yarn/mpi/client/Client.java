@@ -525,7 +525,8 @@ public class Client {
     classPathEnv.append(testRuntimeClassPath);
     env.put("CLASSPATH", classPathEnv.toString());
 
-    //TODO Add the system path into the environment, this is important, otherwise we cannot find mpiexec or smpd
+    // TODO Add the system path into the environment, this is important,
+    // otherwise we cannot find mpiexec or smpd
     env.put("PATH", System.getenv("PATH"));
 
 

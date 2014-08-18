@@ -1,5 +1,5 @@
 /**
- * 
+ *
  */
 package org.apache.hadoop.yarn.mpi.allocator;
 
@@ -9,10 +9,9 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.client.api.AMRMClient;
+import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 
 /**
@@ -20,12 +19,12 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
  */
 public abstract class ContainersAllocator {
 
-   private static final Log LOG = LogFactory.getLog(ContainersAllocator.class);
-   protected AMRMClient rmClient = null;
+  private static final Log LOG = LogFactory.getLog(ContainersAllocator.class);
+  protected AMRMClientAsync.CallbackHandler rmAsyncHandler = null;
 
-   public ContainersAllocator(AMRMClient rmClient) {
-     this.rmClient = rmClient;
-   }
+  public ContainersAllocator(AMRMClientAsync.CallbackHandler handler) {
+    this.rmAsyncHandler = handler;
+  }
 
   /**
    * Allocate Containers
@@ -34,15 +33,15 @@ public abstract class ContainersAllocator {
    * @throws YarnException
    */
   public static ContainersAllocator newInstanceByName(
-      String className, AMRMClient rmClient,
+      String className, AMRMClientAsync.CallbackHandler rmAsyncHandler,
       int requestPriority, int containerMemory,
       ApplicationAttemptId appAttemptID) {
     try {
       Class<?> clazz = Class.forName(className);
       Constructor<?> ctor = clazz.getConstructor(
-          AMRMClient.class, Integer.class, Integer.class,
+          AMRMClientAsync.CallbackHandler.class, Integer.class, Integer.class,
           ApplicationAttemptId.class);
-      return (ContainersAllocator) ctor.newInstance(rmClient,
+      return (ContainersAllocator) ctor.newInstance(rmAsyncHandler,
           requestPriority, containerMemory, appAttemptID);
     } catch (Exception e) {
       LOG.error("Error constructing containers allocator in class " + className);
