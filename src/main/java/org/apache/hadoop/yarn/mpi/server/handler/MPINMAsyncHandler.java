@@ -5,7 +5,10 @@ package org.apache.hadoop.yarn.mpi.server.handler;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync.CallbackHandler;
@@ -15,15 +18,16 @@ import org.apache.hadoop.yarn.client.api.async.NMClientAsync.CallbackHandler;
  *
  */
 public class MPINMAsyncHandler implements CallbackHandler {
-
+  private static final Log LOG = LogFactory
+      .getLog(MPINMAsyncHandler.class);
+  private final AtomicInteger completedContainerCount = new AtomicInteger(0);
   /* (non-Javadoc)
    * @see org.apache.hadoop.yarn.client.api.async.NMClientAsync.CallbackHandler#onContainerStarted(org.apache.hadoop.yarn.api.records.ContainerId, java.util.Map)
    */
   @Override
   public void onContainerStarted(ContainerId containerId,
       Map<String, ByteBuffer> allServiceResponse) {
-    // TODO Auto-generated method stub
-
+    LOG.info("onContainerStarted invoked.");
   }
 
   /* (non-Javadoc)
@@ -32,7 +36,7 @@ public class MPINMAsyncHandler implements CallbackHandler {
   @Override
   public void onContainerStatusReceived(ContainerId containerId,
       ContainerStatus containerStatus) {
-    // TODO Auto-generated method stub
+    LOG.info("onContainerStatusReceived invoked.");
 
   }
 
@@ -41,7 +45,7 @@ public class MPINMAsyncHandler implements CallbackHandler {
    */
   @Override
   public void onContainerStopped(ContainerId containerId) {
-    // TODO Auto-generated method stub
+    LOG.info("onContainerStopped invoked, id=" + containerId);
 
   }
 
@@ -50,8 +54,8 @@ public class MPINMAsyncHandler implements CallbackHandler {
    */
   @Override
   public void onStartContainerError(ContainerId containerId, Throwable t) {
-    // TODO Auto-generated method stub
-
+    LOG.info("onStartContainerError invoked: " + containerId);
+    LOG.info(t.getMessage());
   }
 
   /* (non-Javadoc)

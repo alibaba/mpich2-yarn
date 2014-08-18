@@ -11,10 +11,16 @@ public interface MPDListener {
   void addContainer(ContainerId containerId);
 
   /**
-   * Check whether all the smpd process is started
+   * Check whether all the daemon process is started
    * @return whether started
    */
   boolean isAllMPDStarted();
+
+  /**
+   * Check whether all the daemon process is stopped
+   * @return whether started
+   */
+  boolean isAllMPDFinished();
 
   /**
    * Get the port where the listener listens on

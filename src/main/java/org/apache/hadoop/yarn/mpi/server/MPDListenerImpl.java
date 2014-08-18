@@ -1,7 +1,6 @@
 package org.apache.hadoop.yarn.mpi.server;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -14,7 +13,6 @@ import org.apache.hadoop.ipc.ProtocolSignature;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.service.CompositeService;
-import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.mpi.MPIConfiguration;
 import org.apache.hadoop.yarn.mpi.util.MPDException;
 import org.apache.hadoop.yarn.util.SystemClock;
@@ -22,7 +20,8 @@ import org.apache.hadoop.yarn.util.SystemClock;
 /**
  * Implementation of MPDProtocol and MPDListener
  */
-public class MPDListenerImpl extends CompositeService implements MPDProtocol, MPDListener {
+public class MPDListenerImpl extends CompositeService implements MPDProtocol,
+MPDListener {
 
   private static final Log LOG = LogFactory.getLog(MPDListenerImpl.class);
 
@@ -45,8 +44,9 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
   }
 
   protected void registerHeartbeatHandler(Configuration conf) {
-    taskHeartbeatHandler = new TaskHeartbeatHandler(this, new SystemClock(), conf.getInt(MPIConfiguration.MPI_AM_TASK_LISTENER_THREAD_COUNT,
-        MPIConfiguration.DEFAULT_MPI_AM_TASK_LISTENER_THREAD_COUNT));
+    taskHeartbeatHandler = new TaskHeartbeatHandler(this, new SystemClock(),
+        conf.getInt(MPIConfiguration.MPI_AM_TASK_LISTENER_THREAD_COUNT,
+            MPIConfiguration.DEFAULT_MPI_AM_TASK_LISTENER_THREAD_COUNT));
     addService(taskHeartbeatHandler);
   }
 
@@ -98,8 +98,8 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
   @Override
   public ProtocolSignature getProtocolSignature(String protocol,
       long clientVersion, int clientMethodsHash) throws IOException {
-    return ProtocolSignature.getProtocolSignature(this,
-        protocol, clientVersion, clientMethodsHash);
+    return ProtocolSignature.getProtocolSignature(this, protocol,
+        clientVersion, clientMethodsHash);
   }
 
   @Override
@@ -110,24 +110,41 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
 
   @Override
   public boolean isAllMPDStarted() throws MPDException {
-    Iterator<Entry<ContainerId, MPDStatus>> i =
-        containerToStatus.entrySet().iterator();
+    Iterator<Entry<ContainerId, MPDStatus>> i = containerToStatus.entrySet()
+        .iterator();
     if (containerToStatus.isEmpty()) {
       return false;
     }
     while (i.hasNext()) {
       Entry<ContainerId, MPDStatus> e = i.next();
-      if (e.getValue().equals(MPDStatus.ERROR_FINISHED)){
-        throw new MPDException(String.format(
-              "Container %s error", e.getKey().toString()));
+      if (e.getValue().equals(MPDStatus.ERROR_FINISHED)) {
+        throw new MPDException(String.format("Container %s error", e.getKey()
+            .toString()));
       } else if (e.getValue().equals(MPDStatus.DISCONNECTED)) {
-        throw new MPDException(String.format(
-              "Container %s is disconnected", e.getKey().toString()));
+        throw new MPDException(String.format("Container %s is disconnected", e
+            .getKey().toString()));
       } else if (e.getValue().equals(MPDStatus.MPD_CRASH)) {
-        throw new MPDException(String.format(
-              "Container %s is crashed", e.getKey().toString()));
+        throw new MPDException(String.format("Container %s is crashed", e
+            .getKey().toString()));
       } else if (e.getValue().equals(MPDStatus.INITIALIZED)
-              || e.getValue().equals(MPDStatus.UNDEFINED)) {
+          || e.getValue().equals(MPDStatus.UNDEFINED)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @Override
+  public boolean isAllMPDFinished() {
+    if (containerToStatus.isEmpty()) {
+      return false;
+    }
+    LOG.info("Containers in total: " + containerToStatus.size());
+    Iterator<Entry<ContainerId, MPDStatus>> i = containerToStatus.entrySet()
+        .iterator();
+    while (i.hasNext()) {
+      Entry<ContainerId, MPDStatus> e = i.next();
+      if (!e.getValue().equals(MPDStatus.FINISHED)) {
         return false;
       }
     }
@@ -147,19 +164,19 @@ public class MPDListenerImpl extends CompositeService implements MPDProtocol, MP
   @Override
   public boolean isAllHealthy() throws MPDException {
     Boolean healthy = true;
-    Iterator<Entry<ContainerId, MPDStatus>> i =
-        containerToStatus.entrySet().iterator();
+    Iterator<Entry<ContainerId, MPDStatus>> i = containerToStatus.entrySet()
+        .iterator();
     while (i.hasNext()) {
       Entry<ContainerId, MPDStatus> e = i.next();
-      if (e.getValue().equals(MPDStatus.ERROR_FINISHED)){
-        throw new MPDException(String.format(
-              "Container %s error", e.getKey().toString()));
-      }else if (e.getValue().equals(MPDStatus.DISCONNECTED)) {
-        throw new MPDException(String.format(
-              "Container %s is disconnected", e.getKey().toString()));
-      }else if (e.getValue().equals(MPDStatus.MPD_CRASH)) {
-        throw new MPDException(String.format(
-              "Container %s is crashed", e.getKey().toString()));
+      if (e.getValue().equals(MPDStatus.ERROR_FINISHED)) {
+        throw new MPDException(String.format("Container %s error", e.getKey()
+            .toString()));
+      } else if (e.getValue().equals(MPDStatus.DISCONNECTED)) {
+        throw new MPDException(String.format("Container %s is disconnected", e
+            .getKey().toString()));
+      } else if (e.getValue().equals(MPDStatus.MPD_CRASH)) {
+        throw new MPDException(String.format("Container %s is crashed", e
+            .getKey().toString()));
       }
     }
     return healthy;

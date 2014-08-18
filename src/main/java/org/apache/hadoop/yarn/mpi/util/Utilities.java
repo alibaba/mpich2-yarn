@@ -7,10 +7,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Random;
-import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
@@ -499,12 +496,12 @@ public final class Utilities {
   public static void printRelevantParams(String from, Configuration conf){
     if(conf!=null){
       LOG.info("*********BELOW IS CONFIGUATIONS FROM " + from + " *********");
-      Map<String, String> envs = System.getenv();
-      Set<Entry<String, String>> entries = envs.entrySet();
-      for (Entry<String, String> entry : entries) {
-        System.err.println("key=" + entry.getKey() + "; value="
-            + entry.getValue());
-      }
+      //      Map<String, String> envs = System.getenv();
+      //      Set<Entry<String, String>> entries = envs.entrySet();
+      //      for (Entry<String, String> entry : entries) {
+      //        System.out.println("key=" + entry.getKey() + "; value="
+      //            + entry.getValue());
+      //      }
       LOG.info("Checking some environment variable is properly set.");
       LOG.info("HADOOP_CONF_DIR=" + System.getenv("HADOOP_CONF_DIR"));
       LOG.info("YARN_CONF_DIR=" + System.getenv("YARN_CONF_DIR"));

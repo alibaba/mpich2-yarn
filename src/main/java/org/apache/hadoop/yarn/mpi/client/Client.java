@@ -155,7 +155,6 @@ public class Client {
     // Set up the configuration and RPC
     this.conf = conf;
     dfs = FileSystem.get(conf);
-    Utilities.printRelevantParams("Client new conf", conf);
   }
 
   /**
