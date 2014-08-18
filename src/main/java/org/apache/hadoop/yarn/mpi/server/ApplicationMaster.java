@@ -86,7 +86,7 @@ public class ApplicationMaster extends CompositeService {
   // Priority of the request
   private int requestPriority;
   // Simple flag to denote whether all works is done
-  private boolean appDone = false;
+  private final boolean appDone = false;
   // Counter for completed containers ( complete denotes successful or failed )
   private final AtomicInteger numCompletedContainers = new AtomicInteger(0);
   // Count of failed containers
@@ -625,40 +625,18 @@ public class ApplicationMaster extends CompositeService {
     this.appendMsg("all containers are launched successfully");
     LOG.info("all containers are launched successfully");
     try {
-      // Wait all SMPD for staring
+      // Wait all daemons starting
       while (!mpdListener.isAllMPDStarted()) {
         Utilities.sleep(PULL_INTERVAL);
       }
+      boolean mpiExecSuccess = launchMpiExec();
 
-      launchMpiExec();
-      int loopCounter = -1;
-      while (!mpdListener.isAllMPDFinished()) {
-        LOG.info("Not all containers have done their work, waiting.");
-        loopCounter++;
-        Utilities.sleep(PULL_INTERVAL);
-        // check whether all the smpd process is healthy
-        boolean allHealthy = mpdListener.isAllHealthy();
-        if (allHealthy) {
-          if (numCompletedContainers.get() == numTotalContainers) {
-            appDone = true;
-          }
-
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("Current application state: loop=" + loopCounter
-                + ", appDone=" + appDone + ", total=" + numTotalContainers
-                + ", completed=" + numCompletedContainers + ", failed="
-                + numFailedContainers);
-          }
-          // TODO Add a timeout handling layer, for misbehaving mpi
-          // application
-        }
-      } // end while
       // When the application completes, it should send a finish application
       // signal
       // to the RM
       LOG.info("Application completed. Signalling finish to RM");
 
-      if (numFailedContainers.get() == 0) {
+      if (mpiExecSuccess) {
         isSuccess = true;
       } else {
         isSuccess = false;
@@ -791,9 +769,12 @@ public class ApplicationMaster extends CompositeService {
    */
   private void unregisterApp(FinalApplicationStatus status, String diagnostics) {
     try {
+      LOG.info("Unregister AM, and wait for services to stop.");
       rmClientAsync.unregisterApplicationMaster(status, diagnostics,
           appMasterTrackingUrl);
-      rmClientAsync.stop();
+      rmClientAsync.waitForServiceToStop(0);
+      nmClientAsync.waitForServiceToStop(0);
+      LOG.info("AMRM, NM two services stopped");
     } catch (Exception e) {
       LOG.error("Error unregistering AM.");
       e.printStackTrace();
@@ -803,9 +784,11 @@ public class ApplicationMaster extends CompositeService {
   /**
    * Application Master launches "mpiexec" process locally
    *
+   * @return Whether the MPI executable successfully terminated
    * @throws IOException
+   *
    */
-  private void launchMpiExec() throws IOException {
+  private boolean launchMpiExec() throws IOException {
     LOG.info("Launching mpiexec from the Application Master...");
 
     StringBuilder commandBuilder = new StringBuilder(
@@ -880,25 +863,23 @@ public class ApplicationMaster extends CompositeService {
     });
     stderrThread.start();
 
-    Thread shutdownThread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        try {
-          Utilities.sleep(10000);
-          int ret = pc.waitFor();
-          LOG.info("MPI Process returned with value: " + ret);
-          LOG.info("Shutting down daemons...");
-          Runtime rt = Runtime.getRuntime();
-          for (String host : containerHosts) {
+    try {
+      int ret = pc.waitFor();
+      LOG.info("MPI Process returned with value: " + ret);
+      LOG.info("Shutting down daemons...");
+      for (String host : containerHosts) {
 
-          }
-          LOG.info("All daemons shut down! :-D");
-        } catch (InterruptedException e) {
-          LOG.error("mpiexec Thread is nterruptted!", e);
-        }
       }
-    });
-    shutdownThread.start();
+      LOG.info("All daemons shut down! :-D");
+      if (ret != 0) {
+        return false;
+      } else {
+        return true;
+      }
+    } catch (InterruptedException e) {
+      LOG.error("mpiexec Thread is nterruptted!", e);
+    }
+    return false;
   }
 
   /**
