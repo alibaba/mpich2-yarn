@@ -67,6 +67,7 @@ public class Container {
   private Boolean downloadSave = false;
 
   private Collection<MPIResult> results;
+  private boolean cleanedSuccessfully = false;
 
   public Container() {
     conf = new MPIConfiguration();
@@ -235,12 +236,14 @@ public class Container {
   public Boolean run() throws IOException {
     // TODO Is there any outputs of daemons such as ssh?
 
-    String publicKey = System.getenv(MPIConstants.AM_PUBLIC_KEY);
+    final String publicKey = System.getenv(MPIConstants.AM_PUBLIC_KEY);
     if (publicKey == null || publicKey.isEmpty()) {
       LOG.error("Public key isn't distributed to container, fail!");
       protocol.reportStatus(containerId, MPDStatus.MPD_CRASH);
       return false;
     }
+
+    cleanedSuccessfully = false;
 
     allowPublicKey(publicKey);
 
@@ -249,6 +252,25 @@ public class Container {
     int taskPingInterval = this.conf.getInt(
         MPIConfiguration.TASK_PING_INTERVAL, 1000);
     int taskPingRetry = this.conf.getInt(MPIConfiguration.TASK_PING_RETRY, 3);
+
+    Thread keyCleanupHook = new Thread("key_cleanup_shutdown_hook") {
+      @Override
+      public void run() {
+        if (!cleanedSuccessfully) {
+          try {
+            LOG.info("Container quit but need clean up, doing the clean-up job.");
+            disallowPublicKey(publicKey);
+            LOG.info("Clean up done.");
+          } catch (FileNotFoundException e) {
+            e.printStackTrace();
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+          super.run();
+        }
+      }
+    };
+    Runtime.getRuntime().addShutdownHook(keyCleanupHook);
 
     LOG.info("Wait for the AM's signal.");
 
@@ -275,6 +297,7 @@ public class Container {
 
     // Now disallow the public key to login again.
     disallowPublicKey(publicKey);
+    cleanedSuccessfully = true;
 
     Boolean runSuccess = true;
     protocol.reportStatus(containerId, MPDStatus.FINISHED);
@@ -339,7 +362,7 @@ public class Container {
     while (line != null) {
       LOG.info("Encountered: '" + line + "'");
       LOG.info("Publickeyis: '" + publicKey + "'");
-      LOG.info("Equals: "+line.equals(publicKey));
+      LOG.info("Equals: " + line.equals(publicKey));
       if (!line.equals(publicKey)) {
         lines.add(line);
       }
