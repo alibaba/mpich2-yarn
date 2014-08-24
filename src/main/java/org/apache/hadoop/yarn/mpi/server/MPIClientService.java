@@ -96,7 +96,10 @@ MPIClientProtocol {
       }
       result.add(line);
     }
-    return result.toArray(new String[0]);
+    if(result.size()==0)
+      return null;
+    String[] resultArray = new String[result.size()];
+    return result.toArray(resultArray);
   }
 
   public InetSocketAddress getBindAddress() {

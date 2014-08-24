@@ -49,7 +49,7 @@ public class MPIAMRMAsyncHandler implements CallbackHandler {
     return new ArrayList<Container>(distinctContainers);
   }
 
-  public List<Container> getAcquiredContainers(){
+  public List<Container> getAcquiredContainers() {
     return new ArrayList<Container>(acquiredContainers);
   }
 
@@ -96,6 +96,8 @@ public class MPIAMRMAsyncHandler implements CallbackHandler {
       }
     }
     acquiredContainersCount.addAndGet(containers.size());
+    LOG.info("Current=" + acquiredContainersCount.get() + ", Needed="
+        + neededContainersCount.get());
   }
 
   /*
@@ -135,10 +137,10 @@ public class MPIAMRMAsyncHandler implements CallbackHandler {
   public float getProgress() {
     float neededTotal = neededContainersCount.get();
     float acquiredTotal = acquiredContainersCount.get();
-    if(neededTotal==0){
+    if (neededTotal == 0) {
       return 0.0f;
-    }else{
-      return acquiredTotal/neededTotal;
+    } else {
+      return acquiredTotal / neededTotal;
     }
   }
 

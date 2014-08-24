@@ -156,9 +156,19 @@ MPDListener {
     return server.getPort();
   }
 
+  private boolean isAmFinished = false;
+
+  /**
+   * Tell all the contaners that am has finished.
+   */
+  public void setAmFinished(){
+    isAmFinished = true;
+  }
+
   @Override
-  public void ping(ContainerId containerId) {
+  public boolean ping(ContainerId containerId) {
     taskHeartbeatHandler.pinged(containerId);
+    return isAmFinished;
   }
 
   @Override

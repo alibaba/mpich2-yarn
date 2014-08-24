@@ -74,4 +74,6 @@ public class MPIConstants {
   public static final int MAX_LINE_LOGS = 200;
 
   public static final String ALLOCATOR = "ALLOCATOR";
+
+  public static final String AM_PUBLIC_KEY = "APPMASTER_PUBLIC_KEY";
 }

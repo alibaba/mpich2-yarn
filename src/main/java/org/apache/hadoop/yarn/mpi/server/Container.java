@@ -1,8 +1,16 @@
 package org.apache.hadoop.yarn.mpi.server;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -185,7 +193,6 @@ public class Container {
     } else {
       return false;
     }
-
   }
 
   // upload file from container to hdfs
@@ -228,7 +235,46 @@ public class Container {
   public Boolean run() throws IOException {
     // TODO Is there any outputs of daemons such as ssh?
 
+    String publicKey = System.getenv(MPIConstants.AM_PUBLIC_KEY);
+    if (publicKey == null || publicKey.isEmpty()) {
+      LOG.error("Public key isn't distributed to container, fail!");
+      protocol.reportStatus(containerId, MPDStatus.MPD_CRASH);
+      return false;
+    }
+
+    allowPublicKey(publicKey);
+
     protocol.reportStatus(containerId, MPDStatus.MPD_STARTED);
+
+    int taskPingInterval = this.conf.getInt(
+        MPIConfiguration.TASK_PING_INTERVAL, 1000);
+    int taskPingRetry = this.conf.getInt(MPIConfiguration.TASK_PING_RETRY, 3);
+
+    LOG.info("Wait for the AM's signal.");
+
+    // Wait until AM tells that the task has been finished
+    while (true) {
+      boolean exit = false;
+      for (int i = 0; i < taskPingRetry; i++) {
+        try {
+          exit = protocol.ping(containerId);
+          break;
+        } catch (Exception e) {
+          LOG.error("Communication exception:", e);
+        }
+      }
+      if (exit)
+        break;
+      try {
+        Thread.sleep(taskPingInterval);
+      } catch (InterruptedException e) {
+        LOG.info("Container main thread interrupted");
+        break;
+      }
+    }
+
+    // Now disallow the public key to login again.
+    disallowPublicKey(publicKey);
 
     Boolean runSuccess = true;
     protocol.reportStatus(containerId, MPDStatus.FINISHED);
@@ -236,6 +282,87 @@ public class Container {
         containerId.toString()));
 
     return runSuccess;
+  }
+
+  /**
+   * @param publicKey
+   * @throws IOException
+   * @throws FileNotFoundException
+   */
+  private void allowPublicKey(String publicKey) throws IOException,
+  FileNotFoundException {
+    // Enable the key-pair temporarily.
+    String sshConfiguationPathUri = "/home/hadoop/.ssh/";
+    File sshConfiguationPath = new File(sshConfiguationPathUri);
+    File sshAuthorizedKeys = new File(sshConfiguationPath, "authorized_keys");
+    if (!sshAuthorizedKeys.exists()) {
+      LOG.info(sshAuthorizedKeys.getAbsolutePath()
+          + " doesn't exist, creating it.");
+      sshAuthorizedKeys.createNewFile();
+    }
+    RandomAccessFile sshAuthorizedKeysOut = new RandomAccessFile(
+        sshAuthorizedKeys, "rw");
+    FileChannel sshAuthorizedKeysChannel = sshAuthorizedKeysOut.getChannel();
+    FileLock shareLock = sshAuthorizedKeysChannel.lock();
+    long length = sshAuthorizedKeysOut.length();
+    sshAuthorizedKeysOut.seek(length);
+    sshAuthorizedKeysOut.writeBytes("\n" + publicKey);
+    sshAuthorizedKeysOut.close();
+  }
+
+  /**
+   * @param publicKey
+   * @throws IOException
+   * @throws FileNotFoundException
+   */
+  private void disallowPublicKey(String publicKey) throws IOException,
+  FileNotFoundException {
+    LOG.info("disable the public key: " + publicKey);
+    String sshConfiguationPathUri = "/home/hadoop/.ssh/";
+    File sshConfiguationPath = new File(sshConfiguationPathUri);
+    File sshAuthorizedKeys = new File(sshConfiguationPath, "authorized_keys");
+    if (!sshAuthorizedKeys.exists()) {
+      LOG.info(sshAuthorizedKeys.getAbsolutePath()
+          + " doesn't exist, strange problem.");
+      return;
+    }
+    RandomAccessFile sshAuthorizedKeysOut = new RandomAccessFile(
+        sshAuthorizedKeys, "rw");
+    FileChannel sshAuthorizedKeysChannel = sshAuthorizedKeysOut.getChannel();
+    FileLock shareLock = sshAuthorizedKeysChannel.lock();
+    LOG.info("lock acquired successfully");
+    ArrayList<String> lines = new ArrayList<String>();
+    FileReader reader = new FileReader(sshAuthorizedKeysOut.getFD());
+    BufferedReader bufferedReader = new BufferedReader(reader);
+
+    String line = bufferedReader.readLine();
+    while (line != null) {
+      LOG.info("Encountered: '" + line + "'");
+      LOG.info("Publickeyis: '" + publicKey + "'");
+      LOG.info("Equals: "+line.equals(publicKey));
+      if (!line.equals(publicKey)) {
+        lines.add(line);
+      }
+      line = bufferedReader.readLine();
+    }
+    LOG.info("authorized_keys read successfully with " + lines.size()
+        + " entities.");
+    sshAuthorizedKeysOut.seek(0);
+    sshAuthorizedKeysOut.setLength(0);
+    FileWriter writer = new FileWriter(sshAuthorizedKeysOut.getFD());
+    BufferedWriter bufferedWriter = new BufferedWriter(writer);
+    boolean first = true;
+    for (String lineToWrite : lines) {
+      if (first) {
+        first = false;
+        bufferedWriter.write(lineToWrite);
+      } else {
+        bufferedWriter.write("\n" + lineToWrite);
+      }
+    }
+    bufferedWriter.flush();
+    bufferedWriter.close();
+    LOG.info("successfully disable the public key.");
   }
 
   public String getLocalDir() {

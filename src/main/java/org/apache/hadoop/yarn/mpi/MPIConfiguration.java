@@ -51,6 +51,10 @@ public class MPIConfiguration extends YarnConfiguration {
 
   public static final String MPI_NM_STARTUP_USERDIR = "mpi.nodemanger.startup.userdir";
 
+  public static final String MPI_SSH_PUBLICKEY_ADDR = "mpi.ssh.publickey.addr";
+
+  public static final String DEFAULT_MPI_SSH_PUBLICKEY_ADDR = "/home/hadoop/.ssh/id_rsa.pub";
+
   public static final String MPI_APPLICATION_MASTER_DEFAULT_ADDRESS = "0.0.0.0:0";
 
   public static final int MPI_APPLICATION_WAIT_MESSAGE_EMPTY = 3000;
