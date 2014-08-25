@@ -32,7 +32,8 @@ public class MPIConfiguration extends YarnConfiguration {
   public static final String MPI_ALLOCATE_INTERVAL = "mpi.allocate.interval";
 
   public static final String MPI_CONTAINER_ALLOCATOR = "yarn.mpi.container.allocator";
-  public static final String DEFAULT_MPI_CONTAINER_ALLOCATOR = "DistinctContainersAllocator";
+
+  public static final String DEFAULT_MPI_CONTAINER_ALLOCATOR = "org.apache.hadoop.yarn.mpi.allocator.MultiMPIProcContainersAllocator";
 
   public static final String MPI_LOG_PULL_INTERVAL = "mpi.log.pull.interval";
 
@@ -49,6 +50,10 @@ public class MPIConfiguration extends YarnConfiguration {
   public static final String TASK_PING_RETRY = "yarn.mpi.task.ping.retry";
 
   public static final String MPI_NM_STARTUP_USERDIR = "mpi.nodemanger.startup.userdir";
+
+  public static final String MPI_SSH_PUBLICKEY_ADDR = "mpi.ssh.publickey.addr";
+
+  public static final String DEFAULT_MPI_SSH_PUBLICKEY_ADDR = "/home/hadoop/.ssh/id_rsa.pub";
 
   public static final String MPI_APPLICATION_MASTER_DEFAULT_ADDRESS = "0.0.0.0:0";
 
@@ -81,7 +86,7 @@ public class MPIConfiguration extends YarnConfiguration {
     "$HADOOP_HDFS_HOME/share/hadoop/hdfs/lib/*",
     "$YARN_HOME/share/hadoop/yarn/*", "$YARN_HOME/share/hadoop/yarn/lib/*" };
 
-  static {
+  static{
     YarnConfiguration.addDefaultResource(MPI_DEFAULT_XML_FILE);
     YarnConfiguration.addDefaultResource(MPI_SITE_XML_FILE);
   }

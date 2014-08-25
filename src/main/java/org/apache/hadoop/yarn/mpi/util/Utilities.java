@@ -7,7 +7,10 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
+import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
@@ -24,10 +27,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.ipc.RPC;
-import org.apache.hadoop.mapreduce.MRJobConfig;
-import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
-import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
+import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationReportRequest;
@@ -39,8 +40,8 @@ import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
-import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
@@ -164,7 +165,7 @@ public final class Utilities {
       LOG.info("Requested container ask: " + rsrcReq.toString());
     }
     for (org.apache.hadoop.yarn.api.records.ContainerId id :
-         releasedContainers) {
+      releasedContainers) {
       LOG.info("Released container, id=" + id.getId());
     }
 
@@ -491,4 +492,31 @@ public final class Utilities {
     //vargs.add("-D" + MRJobConfig.TASK_LOG_SIZE + "=" + logSize);
   }
 
+  /**
+   * Print important parameters first for debugging
+   */
+  //Problem: Connect to resource scheduler 0.0.0.0:8030 failed when AM is on slave.
+  public static void printRelevantParams(String from, Configuration conf){
+    if(conf!=null){
+      LOG.info("*********BELOW IS CONFIGUATIONS FROM " + from + " *********");
+      Map<String, String> envs = System.getenv();
+      Set<Entry<String, String>> entries = envs.entrySet();
+      for (Entry<String, String> entry : entries) {
+        System.out.println("key=" + entry.getKey() + "; value="
+            + entry.getValue());
+      }
+      LOG.info("Checking some environment variable is properly set.");
+      LOG.info("HADOOP_CONF_DIR=" + System.getenv("HADOOP_CONF_DIR"));
+      LOG.info("YARN_CONF_DIR=" + System.getenv("YARN_CONF_DIR"));
+      LOG.info("PATH=" + System.getenv("PATH"));
+      LOG.info("Checking conf is correct");
+      LOG.info(MPIConfiguration.RM_HOSTNAME+"="+conf.get(MPIConfiguration.RM_HOSTNAME));
+      LOG.info(MPIConfiguration.RM_ADDRESS+"="+conf.get(MPIConfiguration.RM_ADDRESS));
+      LOG.info(MPIConfiguration.RM_SCHEDULER_ADDRESS+"="+conf.get(MPIConfiguration.RM_SCHEDULER_ADDRESS));
+      LOG.info(MPIConfiguration.DEFAULT_RM_ADDRESS+"="+conf.get(MPIConfiguration.DEFAULT_RM_ADDRESS));
+      LOG.info(MPIConfiguration.DEFAULT_RM_SCHEDULER_ADDRESS+"="+conf.get(MPIConfiguration.DEFAULT_RM_SCHEDULER_ADDRESS));
+      LOG.info(MPIConfiguration.MPI_CONTAINER_ALLOCATOR+"="+conf.get(MPIConfiguration.MPI_CONTAINER_ALLOCATOR));
+      LOG.info("*********************************************************");
+    }
+  }
 }

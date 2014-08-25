@@ -1,15 +1,22 @@
 package org.apache.hadoop.yarn.mpi.server;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Scanner;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -17,8 +24,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
@@ -43,11 +48,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 public class Container {
 
   private static final Log LOG = LogFactory.getLog(Container.class);
-
-  // The port of SMPD process
-  private String smpdPort;
-  private String phrase;
-
   private TaskReporter taskReporter;
 
   private final ExecutorService executorDownload;
@@ -67,34 +67,21 @@ public class Container {
   private Boolean downloadSave = false;
 
   private Collection<MPIResult> results;
+  private boolean cleanedSuccessfully = false;
 
-  public Container(){
+  public Container() {
     conf = new MPIConfiguration();
-    executorDownload=Executors.newFixedThreadPool(POOL_SIZE, new ThreadFactoryBuilder()
-    .setDaemon(true)
-    .setNameFormat("Download Thread #%d")
-    .build());
+    executorDownload = Executors.newFixedThreadPool(
+        POOL_SIZE,
+        new ThreadFactoryBuilder().setDaemon(true)
+        .setNameFormat("Download Thread #%d").build());
   }
-
 
   public boolean init(String[] args) throws ParseException, IOException {
     Options options = new Options();
-    options.addOption("p", "port", true, "The port of the SMPD daemon process");
-    options.addOption("f", "phrase", true, "The pass phrase of the SMPD daemon process");
 
-    CommandLine cliParser = new GnuParser().parse(options, args);
-    if (!cliParser.hasOption("port")) {
-      throw new ParseException("Port is not defined");
-    }
-    smpdPort = cliParser.getOptionValue("port");
-
-    if (!cliParser.hasOption("phrase")) {
-      throw new ParseException("Phrase is not defined");
-    }
-    phrase = cliParser.getOptionValue("phrase");
-
-    containerId = new ContainerId(ConverterUtils.toContainerId(System.getenv(
-        ApplicationConstants.Environment.CONTAINER_ID.toString())));
+    containerId = new ContainerId(ConverterUtils.toContainerId(System
+        .getenv(ApplicationConstants.Environment.CONTAINER_ID.toString())));
     if (containerId == null) {
       LOG.error("No container ID in env.");
       throw new ParseException("Container Id is not defined");
@@ -102,21 +89,21 @@ public class Container {
 
     appMasterHost = System.getenv("APPMASTER_HOST");
     appMasterPort = Integer.valueOf(System.getenv("APPMASTER_PORT"));
-    //    conf = new Configuration();
     InetSocketAddress addr = new InetSocketAddress(appMasterHost, appMasterPort);
-    protocol = RPC.getProxy(
-        MPDProtocol.class, MPDProtocol.versionID, addr, conf);
+    protocol = RPC.getProxy(MPDProtocol.class, MPDProtocol.versionID, addr,
+        conf);
     protocol.reportStatus(containerId, MPDStatus.INITIALIZED);
     taskReporter = new TaskReporter(protocol, conf, containerId);
     taskReporter.setDaemon(true);
     taskReporter.start();
 
     Map<String, String> envs = System.getenv();
-    localDir = Utilities.getDownLoadDir(
-        conf, envs.get(MPIConstants.APPATTEMPTID), containerId);
+    localDir = Utilities.getDownLoadDir(conf,
+        envs.get(MPIConstants.APPATTEMPTID), containerId);
     LOG.info(String.format("localDir:%s", localDir));
-    appAttemptID=envs.get(MPIConstants.APPATTEMPTID);
-    downloadSave = conf.getBoolean(MPIConfiguration.MPI_CONTAINER_DOWNLOAD_SAVE, false);
+    appAttemptID = envs.get(MPIConstants.APPATTEMPTID);
+    downloadSave = conf.getBoolean(
+        MPIConfiguration.MPI_CONTAINER_DOWNLOAD_SAVE, false);
     String containerOutput = envs.get(MPIConstants.CONTAINOUTPUT);
     results = Utilities.decodeMPIResult(containerOutput);
     return true;
@@ -124,13 +111,16 @@ public class Container {
 
   /**
    * download files if necessary
+   *
    * @throws IOException
    * @throws ExecutionException
    */
-  public Boolean download() throws IOException,InterruptedException, ExecutionException{
+  public Boolean download() throws IOException, InterruptedException,
+  ExecutionException {
     Map<String, String> envs = System.getenv();
     String fileSplits = envs.get(MPIConstants.CONTAININPUT);
-    List<FileSplit> splits = Utilities.decodeSplt(fileSplits, FileSystem.get(conf));
+    List<FileSplit> splits = Utilities.decodeSplt(fileSplits,
+        FileSystem.get(conf));
     List<ContainerDownLoad> downLoads = new ArrayList<ContainerDownLoad>();
     boolean allDownLoadSuccess = true;
     boolean mergeSuccess = true;
@@ -145,40 +135,53 @@ public class Container {
       for (FileSplit fSplit : splits) {
         downloadResult.clear();
         downLoads.clear();
-        LOG.info(String.format("begin to download the following files:%s", fSplit.getSplits()));
-        int i=1;
+        LOG.info(String.format("begin to download the following files:%s",
+            fSplit.getSplits()));
+        int i = 1;
         for (Path path : fSplit.getSplits()) {
-          String downLoadOut = localDir + System.currentTimeMillis() + "-"+ i++;
-          ContainerDownLoad download = new ContainerDownLoad(path, FileSystem.get(conf), downLoadOut, conf);
+          String downLoadOut = localDir + System.currentTimeMillis() + "-"
+              + i++;
+          ContainerDownLoad download = new ContainerDownLoad(path,
+              FileSystem.get(conf), downLoadOut, conf);
           downLoads.add(download);
         }
         LOG.info(String.format("download size: %d", downLoads.size()));
-        List<Future<String>> results = this.executorDownload.invokeAll(downLoads);
+        List<Future<String>> results = this.executorDownload
+            .invokeAll(downLoads);
 
         LOG.info(String.format("result size: %d", results.size()));
 
         for (Future<String> result : results) {
-          if (result.get() == null){
+          if (result.get() == null) {
             allDownLoadSuccess = false;
-          }else {
+          } else {
             downloadResult.add(result.get());
           }
         }
         if (allDownLoadSuccess) {
-          LOG.info(String.format("download the following files:%s successfully", fSplit.getSplits()));
-          LOG.info(String.format("begin to merge the following  files:%s,and the merge file name:%s", downloadResult, fSplit.getDownFileName()));
-          ContainerMerge merge = new ContainerMerge(downloadResult, fSplit.getDownFileName());
+          LOG.info(String.format(
+              "download the following files:%s successfully",
+              fSplit.getSplits()));
+          LOG.info(String
+              .format(
+                  "begin to merge the following  files:%s,and the merge file name:%s",
+                  downloadResult, fSplit.getDownFileName()));
+          ContainerMerge merge = new ContainerMerge(downloadResult,
+              fSplit.getDownFileName());
           FutureTask<Boolean> mergeTask = new FutureTask<Boolean>(merge);
           Thread mergeThread = new Thread(mergeTask);
           mergeThread.start();
           mergeSuccess = mergeTask.get();
-          if(mergeSuccess){
-            LOG.info(String.format("merge the following  files:%s successfully", downloadResult));
-          }else{
-            LOG.error(String.format("fail to merge the following  files:%s", downloadResult));
+          if (mergeSuccess) {
+            LOG.info(String.format(
+                "merge the following  files:%s successfully", downloadResult));
+          } else {
+            LOG.error(String.format("fail to merge the following  files:%s",
+                downloadResult));
           }
-        }else{
-          LOG.info(String.format("fail to download the following files:%s ", fileSplits));
+        } else {
+          LOG.info(String.format("fail to download the following files:%s ",
+              fileSplits));
         }
 
         if (!allDownLoadSuccess || !mergeSuccess) {
@@ -188,14 +191,13 @@ public class Container {
     }
     if (allDownLoadSuccess && mergeSuccess) {
       return true;
-    }else {
+    } else {
       return false;
     }
-
   }
 
   // upload file from container to hdfs
-  public boolean upload() throws IOException{
+  public boolean upload() throws IOException {
     if (results != null && results.size() > 0) {
       Iterator<MPIResult> itResult = results.iterator();
       while (itResult.hasNext()) {
@@ -205,9 +207,10 @@ public class Container {
         Path localPath = new Path(mr.getContainerLocal());
         Path resultPath = new Path(mr.getDfsLocation());
         if (localFs.exists(localPath)) {
-          if (!dfs.isDirectory(resultPath) && dfs.exists(resultPath)){
-            throw new MPDException(String.format("file %s exists", resultPath.toString()));
-          }else{
+          if (!dfs.isDirectory(resultPath) && dfs.exists(resultPath)) {
+            throw new MPDException(String.format("file %s exists",
+                resultPath.toString()));
+          } else {
             dfs.copyFromLocalFile(false, false, localPath, resultPath);
           }
         }
@@ -230,62 +233,159 @@ public class Container {
     mpiexecSame.setExecutable(true);
   }
 
-  public Boolean run() throws IOException{
-    Runtime rt = Runtime.getRuntime();
-    // Hacked the smpd_cmd_args.c, to add an option set bService
-    String cmdLine = "smpd -phrase " + phrase
-        + " -port " + smpdPort + " -yarn";
-    LOG.info("Launching SMPD Command: " + cmdLine);
-    final Process pc = rt.exec(cmdLine);
-    // If we get the reference of the process, we get the running daemon.
-    if (pc != null) {
-      protocol.reportStatus(containerId, MPDStatus.MPD_STARTED);
-    }else {
-      LOG.error("error occurs while creating the smpd process");
+  public Boolean run() throws IOException {
+    // TODO Is there any outputs of daemons such as ssh?
+
+    final String publicKey = System.getenv(MPIConstants.AM_PUBLIC_KEY);
+    if (publicKey == null || publicKey.isEmpty()) {
+      LOG.error("Public key isn't distributed to container, fail!");
+      protocol.reportStatus(containerId, MPDStatus.MPD_CRASH);
+      return false;
     }
 
-    Thread stdOutThread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        Scanner stdOut = new Scanner(pc.getInputStream());
-        while (stdOut.hasNextLine()) {
-          LOG.info(stdOut.next());
-        }
-      }
-    });
-    stdOutThread.start();
+    cleanedSuccessfully = false;
 
-    Thread stdErrThread = new Thread(new Runnable() {
+    allowPublicKey(publicKey);
+
+    protocol.reportStatus(containerId, MPDStatus.MPD_STARTED);
+
+    int taskPingInterval = this.conf.getInt(
+        MPIConfiguration.TASK_PING_INTERVAL, 1000);
+    int taskPingRetry = this.conf.getInt(MPIConfiguration.TASK_PING_RETRY, 3);
+
+    Thread keyCleanupHook = new Thread("key_cleanup_shutdown_hook") {
       @Override
       public void run() {
-        Scanner stdErr = new Scanner(pc.getErrorStream());
-        while (stdErr.hasNextLine()) {
-          String err = stdErr.nextLine();
-          System.err.println(String.format("Continer %s error:%s",
-              containerId.toString(), err));
+        if (!cleanedSuccessfully) {
+          try {
+            LOG.info("Container quit but need clean up, doing the clean-up job.");
+            disallowPublicKey(publicKey);
+            LOG.info("Clean up done.");
+          } catch (FileNotFoundException e) {
+            e.printStackTrace();
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+          super.run();
         }
       }
-    });
-    stdErrThread.start();
+    };
+    Runtime.getRuntime().addShutdownHook(keyCleanupHook);
+
+    LOG.info("Wait for the AM's signal.");
+
+    // Wait until AM tells that the task has been finished
+    while (true) {
+      boolean exit = false;
+      for (int i = 0; i < taskPingRetry; i++) {
+        try {
+          exit = protocol.ping(containerId);
+          break;
+        } catch (Exception e) {
+          LOG.error("Communication exception:", e);
+        }
+      }
+      if (exit)
+        break;
+      try {
+        Thread.sleep(taskPingInterval);
+      } catch (InterruptedException e) {
+        LOG.info("Container main thread interrupted");
+        break;
+      }
+    }
+
+    // Now disallow the public key to login again.
+    disallowPublicKey(publicKey);
+    cleanedSuccessfully = true;
+
     Boolean runSuccess = true;
-    try {
-      int ret = pc.waitFor();
-      if (ret != 0) {
-        runSuccess = false;
-        LOG.error(String.format(
-            "Container %s, smpd crash, smpd returned value: %d",
-            containerId.toString(), ret));
-        protocol.reportStatus(containerId, MPDStatus.MPD_CRASH);
-      } else {
-        runSuccess = true;
-        protocol.reportStatus(containerId, MPDStatus.FINISHED);
-        LOG.info(String.format(
-            "Container %s, smpd finish successfully", containerId.toString()));
-      }
-    } catch (InterruptedException e) {
-      LOG.error("Process Interrupted.", e);
-    }
+    protocol.reportStatus(containerId, MPDStatus.FINISHED);
+    LOG.info(String.format("Container %s, smpd finish successfully",
+        containerId.toString()));
+
     return runSuccess;
+  }
+
+  /**
+   * @param publicKey
+   * @throws IOException
+   * @throws FileNotFoundException
+   */
+  private void allowPublicKey(String publicKey) throws IOException,
+  FileNotFoundException {
+    // Enable the key-pair temporarily.
+    String sshConfiguationPathUri = "/home/hadoop/.ssh/";
+    File sshConfiguationPath = new File(sshConfiguationPathUri);
+    File sshAuthorizedKeys = new File(sshConfiguationPath, "authorized_keys");
+    if (!sshAuthorizedKeys.exists()) {
+      LOG.info(sshAuthorizedKeys.getAbsolutePath()
+          + " doesn't exist, creating it.");
+      sshAuthorizedKeys.createNewFile();
+    }
+    RandomAccessFile sshAuthorizedKeysOut = new RandomAccessFile(
+        sshAuthorizedKeys, "rw");
+    FileChannel sshAuthorizedKeysChannel = sshAuthorizedKeysOut.getChannel();
+    FileLock shareLock = sshAuthorizedKeysChannel.lock();
+    long length = sshAuthorizedKeysOut.length();
+    sshAuthorizedKeysOut.seek(length);
+    sshAuthorizedKeysOut.writeBytes("\n" + publicKey);
+    sshAuthorizedKeysOut.close();
+  }
+
+  /**
+   * @param publicKey
+   * @throws IOException
+   * @throws FileNotFoundException
+   */
+  private void disallowPublicKey(String publicKey) throws IOException,
+  FileNotFoundException {
+    LOG.info("disable the public key: " + publicKey);
+    String sshConfiguationPathUri = "/home/hadoop/.ssh/";
+    File sshConfiguationPath = new File(sshConfiguationPathUri);
+    File sshAuthorizedKeys = new File(sshConfiguationPath, "authorized_keys");
+    if (!sshAuthorizedKeys.exists()) {
+      LOG.info(sshAuthorizedKeys.getAbsolutePath()
+          + " doesn't exist, strange problem.");
+      return;
+    }
+    RandomAccessFile sshAuthorizedKeysOut = new RandomAccessFile(
+        sshAuthorizedKeys, "rw");
+    FileChannel sshAuthorizedKeysChannel = sshAuthorizedKeysOut.getChannel();
+    FileLock shareLock = sshAuthorizedKeysChannel.lock();
+    LOG.info("lock acquired successfully");
+    ArrayList<String> lines = new ArrayList<String>();
+    FileReader reader = new FileReader(sshAuthorizedKeysOut.getFD());
+    BufferedReader bufferedReader = new BufferedReader(reader);
+
+    String line = bufferedReader.readLine();
+    while (line != null) {
+      LOG.info("Encountered: '" + line + "'");
+      LOG.info("Publickeyis: '" + publicKey + "'");
+      LOG.info("Equals: " + line.equals(publicKey));
+      if (!line.equals(publicKey)) {
+        lines.add(line);
+      }
+      line = bufferedReader.readLine();
+    }
+    LOG.info("authorized_keys read successfully with " + lines.size()
+        + " entities.");
+    sshAuthorizedKeysOut.seek(0);
+    sshAuthorizedKeysOut.setLength(0);
+    FileWriter writer = new FileWriter(sshAuthorizedKeysOut.getFD());
+    BufferedWriter bufferedWriter = new BufferedWriter(writer);
+    boolean first = true;
+    for (String lineToWrite : lines) {
+      if (first) {
+        first = false;
+        bufferedWriter.write(lineToWrite);
+      } else {
+        bufferedWriter.write("\n" + lineToWrite);
+      }
+    }
+    bufferedWriter.flush();
+    bufferedWriter.close();
+    LOG.info("successfully disable the public key.");
   }
 
   public String getLocalDir() {
@@ -308,19 +408,24 @@ public class Container {
     }
 
     final Container container = new Container();
+    Utilities.printRelevantParams("Container", container.conf);
     try {
       if (container.init(args)) {
         // add the shutdownHood after init
-        if (!container.getDownloadSave()){
+        if (!container.getDownloadSave()) {
           Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
-              String deleteDir = Utilities.getApplicationDir(container.getConf(), container.getAppAttemptID());
+              String deleteDir = Utilities.getApplicationDir(
+                  container.getConf(), container.getAppAttemptID());
               try {
                 FileUtil.fullyDelete(new File(deleteDir));
-                LOG.info(String.format("clean the folder:%s successfully", deleteDir));
+                LOG.info(String.format("clean the folder:%s successfully",
+                    deleteDir));
               } catch (Exception e2) {
-                LOG.error(String.format("error happens when cleaning the folder: %s", deleteDir),e2);
+                LOG.error(String.format(
+                    "error happens when cleaning the folder: %s", deleteDir),
+                    e2);
               }
             }
           });
@@ -334,26 +439,29 @@ public class Container {
           if (runSuccess) {
             container.upload();
           }
-        }else {
-          container.getProtocol().reportStatus(container.getContainerId(), MPDStatus.ERROR_FINISHED);
+        } else {
+          container.getProtocol().reportStatus(container.getContainerId(),
+              MPDStatus.ERROR_FINISHED);
           LOG.error("downlaod failed!");
           System.exit(-1);
         }
       } else {
-        container.getProtocol().reportStatus(container.getContainerId(), MPDStatus.ERROR_FINISHED);
+        container.getProtocol().reportStatus(container.getContainerId(),
+            MPDStatus.ERROR_FINISHED);
         LOG.error("Container init failed!");
         System.exit(-1);
       }
     } catch (Exception e) {
       LOG.error("Error executing MPI task in container.");
       e.printStackTrace();
-      container.getProtocol().reportStatus(
-          container.getContainerId(), MPDStatus.ERROR_FINISHED);
+      container.getProtocol().reportStatus(container.getContainerId(),
+          MPDStatus.ERROR_FINISHED);
     }
   }
 
   /**
    * Print the environment and working directory information for debugging.
+   *
    * @throws IOException
    */
   private static void printDebugInfo() throws IOException {
@@ -365,7 +473,8 @@ public class Container {
     Map<String, String> envs = System.getenv();
     Set<Entry<String, String>> entries = envs.entrySet();
     for (Entry<String, String> entry : entries) {
-      System.err.println("key=" + entry.getKey() + "; value=" + entry.getValue());
+      System.err.println("key=" + entry.getKey() + "; value="
+          + entry.getValue());
     }
   }
 
@@ -378,14 +487,14 @@ public class Container {
   }
 
   public Boolean getDownloadSave() {
-    return downloadSave;
+    // TODO
+    // return downloadSave;
+    return true;
   }
-
 
   public MPDProtocol getProtocol() {
     return protocol;
   }
-
 
   public ContainerId getContainerId() {
     return containerId;

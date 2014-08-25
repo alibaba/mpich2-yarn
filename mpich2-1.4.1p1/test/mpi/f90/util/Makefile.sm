@@ -1,5 +1,0 @@
-# This Makefile.sm generated automatically by f77tof90
-# from test/mpi/f77/util/Makefile.sm.  DO NOT EDIT
-smvar_do_sharedlibs = 0
-mtestf90.o: $(srcdir)/mtestf90.f90
-all-local: mtestf90.o

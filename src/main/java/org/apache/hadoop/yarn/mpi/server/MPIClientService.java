@@ -16,23 +16,22 @@ import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.service.AbstractService;
-import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.mpi.api.MPIClientProtocol;
 import org.apache.hadoop.yarn.mpi.webapps.AMWebApp;
 import org.apache.hadoop.yarn.webapp.WebApp;
 import org.apache.hadoop.yarn.webapp.WebApps;
 
-
 /**
  * Abstract Service
  */
-public class MPIClientService extends AbstractService implements MPIClientProtocol {
+public class MPIClientService extends AbstractService implements
+MPIClientProtocol {
   private static final Log LOG = LogFactory.getLog(MPIClientService.class);
   // MPI Web app for each ApplicationMaster
   private WebApp wa;
   private final AppContext appContext;
   private Server server;
-  //address binded to MPIClientProtocal's RPC Service
+  // address binded to MPIClientProtocal's RPC Service
   private InetSocketAddress bindAddress;
 
   public MPIClientService(AppContext appContext) {
@@ -61,11 +60,15 @@ public class MPIClientService extends AbstractService implements MPIClientProtoc
     bindAddress = NetUtils.getConnectAddress(server);
     LOG.info("Starting MPIClientProtocol's RPC service at" + bindAddress);
 
+    // It seems that running web server here is not a good idea - This will
+    // prevent the application from terminating, and cause resource leak?
+
     try {
-      // TODO why this should be set to "mapreduce", any way to construct resources from
+      // TODO why this should be set to "mapreduce", any way to construct
+      // resources from
       // other names?
-      wa = WebApps.$for("mapreduce", AppContext.class, appContext, null).with(conf)
-          .start(new AMWebApp());
+      wa = WebApps.$for("mapreduce", AppContext.class, appContext, null)
+          .with(conf).start(new AMWebApp());
       // TODO Build RPC Server for clients
 
     } catch (Exception e) {
@@ -75,6 +78,7 @@ public class MPIClientService extends AbstractService implements MPIClientProtoc
 
   /**
    * Get HTTP Port which web server listens on
+   *
    * @return http port
    */
   public int getHttpPort() {
@@ -92,7 +96,10 @@ public class MPIClientService extends AbstractService implements MPIClientProtoc
       }
       result.add(line);
     }
-    return result.toArray(new String[0]);
+    if(result.size()==0)
+      return null;
+    String[] resultArray = new String[result.size()];
+    return result.toArray(resultArray);
   }
 
   public InetSocketAddress getBindAddress() {
@@ -112,8 +119,8 @@ public class MPIClientService extends AbstractService implements MPIClientProtoc
   @Override
   public ProtocolSignature getProtocolSignature(String protocol,
       long clientVersion, int clientMethodsHash) throws IOException {
-    return ProtocolSignature.getProtocolSignature(this,
-        protocol, clientVersion, clientMethodsHash);
+    return ProtocolSignature.getProtocolSignature(this, protocol,
+        clientVersion, clientMethodsHash);
   }
 
 }

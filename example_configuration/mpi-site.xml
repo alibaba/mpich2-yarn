@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<configuration>
+<property>
+  <name>yarn.mpi.scratch.dir</name>
+  <value>hdfs://sandking04:9000/home/hadoop/mpi-tmp</value>
+</property>
+</configuration>

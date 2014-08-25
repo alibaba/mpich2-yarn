@@ -8,9 +8,9 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.yarn.mpi.MPIConfiguration;
 import org.apache.hadoop.yarn.util.Clock;
-import org.apache.hadoop.service.AbstractService;
 
 
 
@@ -47,11 +47,11 @@ public class TaskHeartbeatHandler extends AbstractService {
   private Thread lostTaskCheckerThread;
   private int taskTimeOut = 5 * 60 * 1000;// 2 mins
   private int taskTimeOutCheckInterval = 30 * 1000; // 30 seconds.
-  private MPDListenerImpl mpdListener;
+  private final MPDListenerImpl mpdListener;
 
   private final Clock clock;
 
-  private ConcurrentMap<ContainerId, ReportTime> runningMPDs;
+  private final ConcurrentMap<ContainerId, ReportTime> runningMPDs;
 
   public TaskHeartbeatHandler(MPDListenerImpl listener, Clock clock,
       int numThreads) {
@@ -59,7 +59,7 @@ public class TaskHeartbeatHandler extends AbstractService {
     this.mpdListener = listener;
     this.clock = clock;
     runningMPDs =
-      new ConcurrentHashMap<ContainerId, ReportTime>(16, 0.75f, numThreads);
+        new ConcurrentHashMap<ContainerId, ReportTime>(16, 0.75f, numThreads);
     LOG.info("TaskHeartbeatHandler starts successfully");
   }
 
@@ -87,11 +87,11 @@ public class TaskHeartbeatHandler extends AbstractService {
   }
 
   public void pinged(ContainerId containerId) {
-      ReportTime time = runningMPDs.get(containerId);
-      if(time != null) {
-        time.setLastPing(clock.getTime());
-      }
+    ReportTime time = runningMPDs.get(containerId);
+    if(time != null) {
+      time.setLastPing(clock.getTime());
     }
+  }
 
   public void register(ContainerId containerId) {
     runningMPDs.put(containerId, new ReportTime(clock.getTime()));
@@ -107,7 +107,7 @@ public class TaskHeartbeatHandler extends AbstractService {
     public void run() {
       while (!Thread.currentThread().isInterrupted()) {
         Iterator<Map.Entry<ContainerId, ReportTime>> iterator =
-          runningMPDs.entrySet().iterator();
+            runningMPDs.entrySet().iterator();
         long currentTime = clock.getTime();
         while (iterator.hasNext()) {
           Map.Entry<ContainerId, ReportTime> entry = iterator.next();
