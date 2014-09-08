@@ -162,7 +162,6 @@ public class ApplicationMaster extends CompositeService {
     ApplicationMaster appMaster = null;
     try {
       appMaster = new ApplicationMaster();
-      Utilities.printRelevantParams("Very Beginning of AM", appMaster.conf);
       appMaster.appendMsg("Initializing ApplicationMaster");
       LOG.info("Initializing ApplicationMaster");
       if (!appMaster.parseArgs(args)) {
