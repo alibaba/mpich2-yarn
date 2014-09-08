@@ -1,85 +1,110 @@
-mpich2-yarn
+mpich-yarn
 ===========
+#Introduction
+
+MPICH-yarn is an application running on Hadoop YARN that enables
+MPI programs running on Hadoop YARN clusters. 
+
+##Prerequisite
+
+As a prerequisite, you need to
+
+1. have a running Hadoop Yarn and HDFS cluster
+2. have mpich-3.1.2 deploy to every node of the cluster, and the
+binary folder should be in PATH.
+3. correctly configure MPICH-yarn.
+
+This version of mpich-yarn uses MPICH-3.1.2 as implementation of MPI
+and uses ssh as communication daemon.
+
+##Recommended Configuation
+
+Ubuntu 12.04 LTS
+gcc 4.6.3
+jdk 1.7.0_25
+Apache Maven 3.2.3
+
 #Compile
 
-You can use the three ways to get  mpich2-install.tar.gz and mpich2-yarn-1.0-SNAPSHOT.jar.
+To compile MPICH-yarn, first you need to have maven installed. Then 
+type command at source folder:
 
-##Compile the hacked MPICH2
+	mvn clean package
+	
+You need to ensure Internet connected as maven needs to download plugins
+on the maven repository, this may take minutes.
 
-    ./configure --prefix=/home/<USERNAME>/mpich2-install  --with-pm=smpd --with-pmi=smpd
-    make
-    make install
-    tar -zcf mpich2-install.tar.gz /home/<USERNAME>/mpich2-install
+After this command, you will get mpich2-yarn-1.0-SNAPSHOT.jar at
+./target folder. This is the application running at YARN to execute
+MPI programs.
 
-##Compile mpich2-yarn
+#Configuation
 
-    mvn clean package
+There are many tutorials on the Internet about configuring Hadoop, here
+is a sample configuration that has successfully run in our cluster.
 
-##Compile MPICH2 and mpich2-yarn together
+yarn-site.xml
 
-    mvn clean package -Dmaven.test.skip=true -DskipMpi=false
+	<configuration>
+	<property>
+	    <name>yarn.resourcemanager.resource-tracker.address</name>
+	    <value>${YOUR_HOST_IP_OR_NAME}:8031</value>
+	  </property>
+	  <property>
+	    <name>yarn.resourcemanager.address</name>
+	    <value>${YOUR_HOST_IP_OR_NAME}:8032</value>
+	  </property>
+	  <property>
+	    <name>yarn.resourcemanager.hostname</name>
+	    <value>${YOUR_HOST_IP_OR_NAME}</value>
+	  </property>
+	  <property>
+	    <name>yarn.resourcemanager.scheduler.address</name>
+	    <value>${YOUR_HOST_IP_OR_NAME}:8030</value>
+	  </property>
+	  <property>
+	    <name>yarn.resourcemanager.admin.address</name>
+	    <value>${YOUR_HOST_IP_OR_NAME}:8033</value>
+	  </property>
+	  <property>
+	    <name>yarn.resourcemanager.webapp.address</name>
+	    <value>${YOUR_HOST_IP_OR_NAME}:8088</value>
+	  </property>
+	<property>
+		<name>yarn.nodemanager.aux-services</name>
+		<value>mapreduce_shuffle</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.resource.cpu-vcore</name>
+		<value>16</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name>
+		<value>org.apache.hadoop.mapred.ShuffleHandler</value>
+	</property>
+	<property>
+		<name>yarn.application.classpath</name>
+		<value>
+			/home/hadoop/hadoop-2.4.1/etc/hadoop,
+			/home/hadoop/hadoop-2.4.1/share/hadoop/common/*,
+			/home/hadoop/hadoop-2.4.1/share/hadoop/hdfs/*,
+			/home/hadoop/hadoop-2.4.1/share/hadoop/yarn/*,
+			/home/hadoop/hadoop-2.4.1/share/hadoop/common/lib/*,
+			/home/hadoop/hadoop-2.4.1/share/hadoop/hdfs/lib/*,
+			/home/hadoop/hadoop-2.4.1/share/hadoop/yarn/lib/*
+		</value>
+	</property>
+	</configuration>
+	
+mpi-site.conf
 
-This command will generate mpich2-install.tar.gz and mpich2-yarn-1.0-SNAPSHOT.jar together.
-
-#Deploy
-
-##Deploy hacked MPICH2
-
-Distribute mpich2-install.tar.gz to the EVERY node of the cluster including
-both client notes and node mangers and extract it.
-
-Client nodes will use the mpich2 for compiling, if you don not want to compile
-on the client notes, it is not necessary to put upload the mpich2.
-
-Assuming that the extracted path looks like this:
-
-    /home/<USERNAME>/mpich2-install  # where <USERNAME> can be "hadoop" or something
-
-Make sure the mpich2 is on the PATH of the Nodemanager, ususally we simply add
-this line to the yarn-env.sh or the system environment of the Nodemanager:
-
-    export PATH=/path/to/mpich2-install/bin:$PATH
-
-##Deploy mpich2-yarn
-
-Upload mpich2-yarn-1.0-SNAPSHOT.jar to the client nodes.
-
-Assuming that the path looks like this:
-
-    /home/hadoop/mpich2-yarn-1.0-SNAPSHOT.jar
-
-All the ApplicationMaster, Container and Client are packed in this yarn, and it
-will be distributed automatically while summiting an MPI Application.
-
-#Configuration
-
-##Client nodes
-
-Configure the following environment:
-
-    export HADOOP_HOME=/home/<USERNAME>/hadoop-current
-    export HADOOP_CONF_DIR=/home/<USERNAME>/hadoop-conf
-    export MPI_HOME=/home/<USERNAME>/mpich2-install
-    export PATH=$MPI_HOME/bin:$HADOOP_HOME:$PATH
-
-Enter $HADOOP\_CONF\_DIF and create mpi-site.xml:
-
-    <?xml version="1.0"?>
-    <configuration>
-    <property>
-      <name>yarn.mpi.scratch.dir</name>
-      <value>hdfs://fs.defaultFS:9000/home/username/mpi-tmp</value>
-    </property>
-    </configuration>
-
-The hdfs path will save the mpi works and appmasters.
-
-##Node Managers
-
-Put the following lines the on the path of the node managers.
-
-    export MPI_HOME=/home/<USERNAME>/mpich2-install
-    export PATH=$MP_HOME/bin
+	<configuration>
+	<property>
+	  <name>yarn.mpi.scratch.dir</name>
+	  <value>${YOUR_HDFS_PREFIX}/home/hadoop/mpi-tmp</value>
+	  <!-- like hdfs://sandking04:9000/home/hadoop/mpi-tmp -->
+	</property>
+	</configuration> 
 
 #Submit Jobs
 
