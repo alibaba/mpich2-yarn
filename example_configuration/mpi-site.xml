@@ -1,7 +1,20 @@
 <?xml version="1.0"?>
 <configuration>
-<property>
-  <name>yarn.mpi.scratch.dir</name>
-  <value>hdfs://sandking04:9000/home/hadoop/mpi-tmp</value>
-</property>
-</configuration>
+	<property>
+		<name>yarn.mpi.scratch.dir</name>
+		<value></value>
+		<description>
+			The HDFS address that stores temporary file like:
+			hdfs://sandking04:9000/home/hadoop/mpi-tmp
+		</description>
+	</property>
+	<property>
+		<name>yarn.mpi.ssh.authorizedkeys.path</name>
+		<value>/home/hadoop/.ssh/authorized_keys</value>
+		<description>
+			MPICH-YARN will create a temporary RSA key pair for
+			password-less login and automatically configure it. 
+			All of your hosts should enable public_key login.
+		</description>
+	</property>
+</configuration> 

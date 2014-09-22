@@ -964,7 +964,8 @@ public class ApplicationMaster extends CompositeService {
 
       commandBuilder.append(mpiOptions);
     }
-    String[] envs = {"PATH="+System.getenv("PATH"), "HYDRA_LAUNCHER_EXTRA_ARGS=-i " + keypair_position};
+    //TODO Here we canceled mandatory host key checking, and may have potential risk for middle-man-attack
+    String[] envs = {"PATH="+System.getenv("PATH"), "HYDRA_LAUNCHER_EXTRA_ARGS=-o StrictHostKeyChecking=no -i " + keypair_position};
     LOG.info("Executing command:" + commandBuilder.toString());
     File mpiPWD = new File(mpiExecDir);
     Runtime rt = Runtime.getRuntime();
@@ -979,6 +980,7 @@ public class ApplicationMaster extends CompositeService {
           LOG.info(line);
           appendMsg(line);
         }
+        pcStdout.close();
       }
     });
     stdinThread.start();
@@ -992,6 +994,7 @@ public class ApplicationMaster extends CompositeService {
           LOG.info(line);
           appendMsg(line);
         }
+        pcStderr.close();
       }
     });
     stderrThread.start();

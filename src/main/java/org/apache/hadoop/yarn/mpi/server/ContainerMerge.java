@@ -13,8 +13,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.mpi.util.LocalFileUtils;
 
-
-public class ContainerMerge  implements Callable<Boolean>{
+public class ContainerMerge implements Callable<Boolean> {
 
   private static final Log LOG = LogFactory.getLog(ContainerMerge.class);
 
@@ -36,6 +35,8 @@ public class ContainerMerge  implements Callable<Boolean>{
   public Boolean call() {
     Boolean success = true;
     FileChannel outChannel = null;
+    FileOutputStream fileOutputStream = null;
+
     try {
       File fexists = new File(outFile);
       if (fexists.exists()) {
@@ -44,10 +45,12 @@ public class ContainerMerge  implements Callable<Boolean>{
 
       LocalFileUtils.mkParentDir(outFile);
 
-      outChannel = new FileOutputStream(outFile).getChannel();
+      fileOutputStream = new FileOutputStream(outFile);
+      outChannel = fileOutputStream.getChannel();
 
       for (String f : files) {
-        FileChannel fc = new FileInputStream(f).getChannel();
+        FileInputStream fis = new FileInputStream(f);
+        FileChannel fc = fis.getChannel();
         ByteBuffer bb = ByteBuffer.allocate(BUFSIZE);
         while (fc.read(bb) != -1) {
           bb.flip();
@@ -55,6 +58,7 @@ public class ContainerMerge  implements Callable<Boolean>{
           bb.clear();
         }
         fc.close();
+        fis.close();
       }
     } catch (IOException ioe) {
       success = false;
@@ -63,6 +67,9 @@ public class ContainerMerge  implements Callable<Boolean>{
       try {
         if (outChannel != null) {
           outChannel.close();
+        }
+        if (fileOutputStream != null) {
+          fileOutputStream.close();
         }
       } catch (IOException io) {
         success = false;

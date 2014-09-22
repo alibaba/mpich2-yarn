@@ -1,7 +1,5 @@
 package org.apache.hadoop.yarn.mpi.api;
 
-import java.util.List;
-
 import org.apache.hadoop.ipc.VersionedProtocol;
 
 

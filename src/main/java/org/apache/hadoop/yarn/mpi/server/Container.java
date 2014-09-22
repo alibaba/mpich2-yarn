@@ -61,6 +61,7 @@ public class Container {
   private String appMasterHost;
   private int appMasterPort;
   private ContainerId containerId = null;
+  private final String sshAuthorizedKeysPath;
 
   private String appAttemptID;
 
@@ -75,6 +76,7 @@ public class Container {
         POOL_SIZE,
         new ThreadFactoryBuilder().setDaemon(true)
         .setNameFormat("Download Thread #%d").build());
+    sshAuthorizedKeysPath = conf.get(MPIConfiguration.MPI_SSH_AUTHORIZED_KEYS_PATH);
   }
 
   public boolean init(String[] args) throws ParseException, IOException {
@@ -314,10 +316,9 @@ public class Container {
    */
   private void allowPublicKey(String publicKey) throws IOException,
   FileNotFoundException {
+    LOG.info("enable the public key: " + publicKey);
     // Enable the key-pair temporarily.
-    String sshConfiguationPathUri = "/home/hadoop/.ssh/";
-    File sshConfiguationPath = new File(sshConfiguationPathUri);
-    File sshAuthorizedKeys = new File(sshConfiguationPath, "authorized_keys");
+    File sshAuthorizedKeys = new File(sshAuthorizedKeysPath);
     if (!sshAuthorizedKeys.exists()) {
       LOG.info(sshAuthorizedKeys.getAbsolutePath()
           + " doesn't exist, creating it.");
@@ -326,7 +327,10 @@ public class Container {
     RandomAccessFile sshAuthorizedKeysOut = new RandomAccessFile(
         sshAuthorizedKeys, "rw");
     FileChannel sshAuthorizedKeysChannel = sshAuthorizedKeysOut.getChannel();
+
+    @SuppressWarnings("unused")
     FileLock shareLock = sshAuthorizedKeysChannel.lock();
+
     long length = sshAuthorizedKeysOut.length();
     sshAuthorizedKeysOut.seek(length);
     sshAuthorizedKeysOut.writeBytes("\n" + publicKey);
@@ -341,9 +345,7 @@ public class Container {
   private void disallowPublicKey(String publicKey) throws IOException,
   FileNotFoundException {
     LOG.info("disable the public key: " + publicKey);
-    String sshConfiguationPathUri = "/home/hadoop/.ssh/";
-    File sshConfiguationPath = new File(sshConfiguationPathUri);
-    File sshAuthorizedKeys = new File(sshConfiguationPath, "authorized_keys");
+    File sshAuthorizedKeys = new File(sshAuthorizedKeysPath);
     if (!sshAuthorizedKeys.exists()) {
       LOG.info(sshAuthorizedKeys.getAbsolutePath()
           + " doesn't exist, strange problem.");
@@ -352,7 +354,10 @@ public class Container {
     RandomAccessFile sshAuthorizedKeysOut = new RandomAccessFile(
         sshAuthorizedKeys, "rw");
     FileChannel sshAuthorizedKeysChannel = sshAuthorizedKeysOut.getChannel();
+
+    @SuppressWarnings("unused")
     FileLock shareLock = sshAuthorizedKeysChannel.lock();
+
     LOG.info("lock acquired successfully");
     ArrayList<String> lines = new ArrayList<String>();
     FileReader reader = new FileReader(sshAuthorizedKeysOut.getFD());
@@ -370,6 +375,7 @@ public class Container {
     }
     LOG.info("authorized_keys read successfully with " + lines.size()
         + " entities.");
+
     sshAuthorizedKeysOut.seek(0);
     sshAuthorizedKeysOut.setLength(0);
     FileWriter writer = new FileWriter(sshAuthorizedKeysOut.getFD());
