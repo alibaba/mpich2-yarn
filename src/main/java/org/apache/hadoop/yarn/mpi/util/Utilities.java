@@ -510,7 +510,6 @@ public final class Utilities {
       LOG.info("YARN_CONF_DIR=" + System.getenv("YARN_CONF_DIR"));
       LOG.info("PATH=" + System.getenv("PATH"));
       LOG.info("Checking conf is correct");
-      LOG.info(MPIConfiguration.RM_HOSTNAME+"="+conf.get(MPIConfiguration.RM_HOSTNAME));
       LOG.info(MPIConfiguration.RM_ADDRESS+"="+conf.get(MPIConfiguration.RM_ADDRESS));
       LOG.info(MPIConfiguration.RM_SCHEDULER_ADDRESS+"="+conf.get(MPIConfiguration.RM_SCHEDULER_ADDRESS));
       LOG.info(MPIConfiguration.DEFAULT_RM_ADDRESS+"="+conf.get(MPIConfiguration.DEFAULT_RM_ADDRESS));
