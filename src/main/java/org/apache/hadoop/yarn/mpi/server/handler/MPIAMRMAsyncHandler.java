@@ -16,10 +16,6 @@ import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync.CallbackHandler;
 
-/**
- * @author Óá²©ÎÄ
- *
- */
 public class MPIAMRMAsyncHandler implements CallbackHandler {
   private static final Log LOG = LogFactory.getLog(MPIAMRMAsyncHandler.class);
   private final Map<String, Integer> hostToProcNum = new HashMap<String, Integer>();

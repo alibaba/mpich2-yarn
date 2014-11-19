@@ -13,10 +13,6 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync.CallbackHandler;
 
-/**
- * @author Óá²©ÎÄ
- *
- */
 public class MPINMAsyncHandler implements CallbackHandler {
   private static final Log LOG = LogFactory
       .getLog(MPINMAsyncHandler.class);

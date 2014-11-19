@@ -9,27 +9,27 @@ MPI programs running on Hadoop YARN clusters.
 
 As a prerequisite, you need to
 
-1. have a running Hadoop Yarn and HDFS cluster
-2. have mpich-3.1.2 deploy to every node of the cluster, and the
-binary folder should be in PATH.
-3. correctly configure MPICH-yarn.
+1. The cluster has been deployed Hadoop YARN and HDFS.
+2. Each node in the cluster has installed mpich-3.1.2 and its ./bin
+folder has been added to PATH.
 
 This version of mpich-yarn uses MPICH-3.1.2 as implementation of MPI
 and uses ssh as communication daemon.
 
 ##Recommended Configuation
 
-Ubuntu 12.04 LTS
-gcc 4.6.3
-jdk 1.7.0_25
-Apache Maven 3.2.3
+1. Ubuntu 12.04 LTS
+2. hadoop 2.4.1
+3. gcc 4.6.3
+4. jdk 1.7.0_25
+5. Apache Maven 3.2.3
 
 #Compile
 
 To compile MPICH-yarn, first you need to have maven installed. Then 
 type command at source folder:
 
-	mvn clean package
+	mvn clean package -Dmaven.test.skip=true
 	
 You need to ensure Internet connected as maven needs to download plugins
 on the maven repository, this may take minutes.
@@ -40,8 +40,10 @@ MPI programs.
 
 #Configuation
 
-There are many tutorials on the Internet about configuring Hadoop, here
-is a sample configuration that has successfully run in our cluster.
+There are many tutorials on the Internet about configuring Hadoop. However,
+there are many troubles in configuring YARN to make it work well with mpich2-
+yarn. To save your time, here is a sample configuration that has successfully
+run in our cluster for your reference.
 
 yarn-site.xml
 
