@@ -1,11 +1,11 @@
 mpich-yarn
 ===========
-#Introduction
+# Introduction
 
 MPICH-yarn is an application running on Hadoop YARN that enables
 MPI programs running on Hadoop YARN clusters. 
 
-##Prerequisite
+## Prerequisite
 
 As a prerequisite, you need to
 
@@ -16,7 +16,7 @@ folder has been added to PATH.
 This version of mpich-yarn uses MPICH-3.1.2 as implementation of MPI
 and uses ssh as communication daemon.
 
-##Recommended Configuation
+## Recommended Configuation
 
 1. Ubuntu 12.04 LTS
 2. hadoop 2.4.1
@@ -24,7 +24,7 @@ and uses ssh as communication daemon.
 4. jdk 1.7.0_25
 5. Apache Maven 3.2.3
 
-#Compile
+# Compile
 
 To compile MPICH-yarn, first you need to have maven installed. Then 
 type command at source folder:
@@ -38,7 +38,7 @@ After this command, you will get mpich2-yarn-1.0-SNAPSHOT.jar at
 ./target folder. This is the application running at YARN to execute
 MPI programs.
 
-#Configuation
+# Configuation
 
 There are many tutorials on the Internet about configuring Hadoop. However,
 there are many troubles in configuring YARN to make it work well with mpich2-
@@ -120,7 +120,7 @@ mpi-site.conf
 		</property>
 	</configuration> 
 
-#Submit Jobs
+# Submit Jobs
 
 ## CPI
 
